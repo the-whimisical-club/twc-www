@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import "./scrollbar.css";
+
+@font-face {
+  font-family: 'DashingAlternate';
+  src: url('/fonts/Dashing Alternate.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'StackSansNotch-Regular';
+  src: url('/fonts/stack-sans/StackSansNotch-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-background: #0C0C0C;
+  --color-foreground: #EEEEEE;
+}
+
+@layer utilities {
+  .text-heading {
+    @apply text-foreground text-8xl;
+    font-family: 'dark-london', 'Dark London', system-ui, sans-serif;
+  }
+  
+  .font-dark-london {
+    font-family: 'dark-london', 'Dark London', system-ui, sans-serif;
+  }
+  
+  .font-dashing {
+    font-family: 'DashingAlternate', 'Dashing', system-ui, sans-serif;
+  }
+  
+  .font-stack-sans-notch {
+    font-family: 'StackSansNotch-Regular', 'Stack_Sans_Notch', system-ui, sans-serif !important;
+    line-height: 125%;
+  }
+}
