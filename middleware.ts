@@ -1,16 +1,29 @@
 // Next.js middleware file (not Bun middleware)
 // This file is required by Next.js for route-level middleware
-import { type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from './utils/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  // This refreshes the session cookie automatically
-  const response = createClient(request)
+  try {
+    // Create Supabase client and get response object
+    const { supabase, response } = createClient(request)
 
-  // The createClient utility handles session refresh automatically
-  // You can add route protection logic here if needed
+    // This refreshes the session cookie automatically
+    // Calling getUser() triggers the session refresh
+    await supabase.auth.getUser()
 
-  return response
+    // You can add route protection logic here if needed
+
+    return response
+  } catch (error) {
+    // If there's an error, return a response without breaking the request
+    console.error('Middleware error:', error)
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    })
+  }
 }
 
 export const config = {

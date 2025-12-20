@@ -26,6 +26,8 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 ;
 const supabaseUrl = ("TURBOPACK compile-time value", "https://pmkagantruamvjaijvux.supabase.co");
 const supabaseKey = ("TURBOPACK compile-time value", "sb_publishable_FQ29b5yVCZVgZTrBUsu7MA_ze0M5GRW");
+if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+;
 const createClient = (request)=>{
     // Create an unmodified response
     let supabaseResponse = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["NextResponse"].next({
@@ -47,28 +49,46 @@ const createClient = (request)=>{
             }
         }
     });
-    return supabaseResponse;
+    return {
+        supabase,
+        response: supabaseResponse
+    };
 };
 }),
 "[project]/middleware.ts [middleware-edge] (ecmascript)", ((__turbopack_context__) => {
 "use strict";
 
-// Next.js middleware file (not Bun middleware)
-// This file is required by Next.js for route-level middleware
 __turbopack_context__.s([
     "config",
     ()=>config,
     "middleware",
     ()=>middleware
 ]);
+// Next.js middleware file (not Bun middleware)
+// This file is required by Next.js for route-level middleware
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$api$2f$server$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/next/dist/esm/api/server.js [middleware-edge] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/esm/server/web/exports/index.js [middleware-edge] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$utils$2f$supabase$2f$middleware$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/utils/supabase/middleware.ts [middleware-edge] (ecmascript)");
 ;
+;
 async function middleware(request) {
-    // This refreshes the session cookie automatically
-    const response = (0, __TURBOPACK__imported__module__$5b$project$5d2f$utils$2f$supabase$2f$middleware$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["createClient"])(request);
-    // The createClient utility handles session refresh automatically
-    // You can add route protection logic here if needed
-    return response;
+    try {
+        // Create Supabase client and get response object
+        const { supabase, response } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$utils$2f$supabase$2f$middleware$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["createClient"])(request);
+        // This refreshes the session cookie automatically
+        // Calling getUser() triggers the session refresh
+        await supabase.auth.getUser();
+        // You can add route protection logic here if needed
+        return response;
+    } catch (error) {
+        // If there's an error, return a response without breaking the request
+        console.error('Middleware error:', error);
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["NextResponse"].next({
+            request: {
+                headers: request.headers
+            }
+        });
+    }
 }
 const config = {
     matcher: [
