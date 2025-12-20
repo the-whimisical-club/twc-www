@@ -12,6 +12,7 @@ export default function IntroText({ texts }: IntroTextProps) {
   const [isTyping, setIsTyping] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [shouldScroll, setShouldScroll] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   // Calculate typing speed with easing curve - slower at start, faster as it goes
   const getTypingDelay = (charIndex: number, textLength: number): number => {
@@ -33,8 +34,17 @@ export default function IntroText({ texts }: IntroTextProps) {
     return 50;
   };
 
+  // Initial 3 second delay before animation starts
   useEffect(() => {
-    if (texts.length === 0) return;
+    const delayTimeout = setTimeout(() => {
+      setHasStarted(true);
+    }, 3000);
+
+    return () => clearTimeout(delayTimeout);
+  }, []);
+
+  useEffect(() => {
+    if (!hasStarted || texts.length === 0) return;
 
     const currentText = texts[currentTextIndex];
     if (!currentText) return;
@@ -85,7 +95,7 @@ export default function IntroText({ texts }: IntroTextProps) {
     }
 
     return () => clearTimeout(timeout);
-  }, [displayedText, currentTextIndex, isTyping, isDeleting, texts]);
+  }, [displayedText, currentTextIndex, isTyping, isDeleting, texts, hasStarted]);
 
   // Handle scroll to next section with slow animation
   useEffect(() => {
