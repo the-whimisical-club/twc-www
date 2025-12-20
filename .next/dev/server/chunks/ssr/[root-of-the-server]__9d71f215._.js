@@ -104,7 +104,7 @@ function Page() {
                     texts: [
                         "aloha",
                         "welcome to",
-                        "the whimsical club"
+                        "the whimsy club"
                     ]
                 }, void 0, false, {
                     fileName: "[project]/app/page.tsx",
@@ -132,7 +132,7 @@ function Page() {
                         className: "flex flex-col text-4xl text-background font-stack-sans-notch gap-8",
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                children: "this is the whimsical club: a private space away from ads, algorithms, and noise. i just want to see what my friends are actually up to."
+                                children: "this is the whimsy club: a private space away from ads, algorithms, and noise. i just want to see what my friends are actually up to."
                             }, void 0, false, {
                                 fileName: "[project]/app/page.tsx",
                                 lineNumber: 18,

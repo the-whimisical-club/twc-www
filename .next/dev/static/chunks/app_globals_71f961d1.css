@@ -471,10 +471,6 @@
     padding-block: calc(var(--spacing) * 2);
   }
 
-  .py-8 {
-    padding-block: calc(var(--spacing) * 8);
-  }
-
   .text-center {
     text-align: center;
   }

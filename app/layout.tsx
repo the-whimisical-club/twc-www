@@ -6,7 +6,9 @@ export const metadata: Metadata = {
   title: "the whimsy club",
   description: "an exclusive, fuck ads and algorithms, cool club.",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+    ],
   },
   openGraph: {
     title: "the whimsy club",
@@ -36,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="stylesheet" href="https://use.typekit.net/lhg5zwj.css" />
       </head>
       <body className="h-full m-0 p-0">
