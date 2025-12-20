@@ -4,6 +4,28 @@ import ScrollToTop from "./components/scroll-to-top";
 
 export const metadata: Metadata = {
   title: "the whimsy club",
+  description: "an exclusive, fuck ads and algorithms, cool club.",
+  icons: {
+    icon: "/favicon.ico",
+  },
+  openGraph: {
+    title: "the whimsy club",
+    description: "an exclusive, fuck ads and algorithms, cool club.",
+    images: [
+      {
+        url: "/meta/banner.png",
+        width: 1200,
+        height: 630,
+        alt: "the whimsy club",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "the whimsy club",
+    description: "an exclusive, fuck ads and algorithms, cool club.",
+    images: ["/meta/banner.png"],
+  },
 };
 
 export default function RootLayout({
