@@ -29,7 +29,6 @@ export default function Page() {
         </div>
         <div className="flex gap-4">
           <AnimatedButton text="Sign Up" href="/signup" variant="default" />
-          <AnimatedButton text="Log In" href="/login" variant="transparent" />
         </div>
       </section>
     </div>

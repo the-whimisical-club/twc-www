@@ -12,26 +12,26 @@
   text-align: center;
   text-transform: uppercase;
   width: 100%;
-  max-width: 240px;
-  height: 64px;
+  max-width: 320px;
+  height: 80px;
   margin: 10px 0;
   padding: 8px;
   font-family: StackSansNotch-Regular, Stack_Sans_Notch, system-ui, sans-serif;
-  font-size: .8rem;
+  font-size: 1.2rem;
   font-weight: 900;
   text-decoration: none;
   transition: all .3s ease-out;
   position: relative;
-  box-shadow: inset 0 0 0 1px #ece8e14d;
+  box-shadow: inset 0 0 0 1px #eeeeee4d;
 }
 
 .valorant-button.white:hover > p {
-  color: #ece8e1;
+  color: var(--color-foreground);
 }
 
 .valorant-button.white > p {
-  color: #0f1923;
-  background: #ece8e1;
+  background: var(--color-foreground);
+  color: var(--color-background);
 }
 
 .valorant-button.white > p > span.base {
@@ -39,25 +39,25 @@
 }
 
 .valorant-button.transparent:hover > p {
-  color: #ece8e1;
+  color: var(--color-foreground);
 }
 
 .valorant-button.transparent:hover > p > span.text {
-  box-shadow: 0 0 0 1px #ece8e1;
+  box-shadow: 0 0 0 1px var(--color-foreground);
 }
 
 .valorant-button.transparent > p {
-  color: #ece8e1;
-  background: #0f1923;
+  background: var(--color-background);
+  color: var(--color-foreground);
 }
 
 .valorant-button.transparent > p > span.base {
-  border: 1px solid #ece8e1;
+  border: 1px solid var(--color-foreground);
 }
 
 .valorant-button:after, .valorant-button:before {
   content: "";
-  background: #0f1923;
+  background: var(--color-background);
   width: 1px;
   height: 8px;
   position: absolute;
@@ -95,7 +95,7 @@
 
 .valorant-button > p > span.base:before {
   content: "";
-  background: #0f1923;
+  background: var(--color-background);
   width: 2px;
   height: 2px;
   transition: all .3s ease-out;
@@ -129,8 +129,8 @@
 
 .valorant-button > p > span.text:after {
   content: "";
+  background: var(--color-background);
   z-index: 5;
-  background: #0f1923;
   width: 4px;
   height: 4px;
   transition: all .3s ease-out;
@@ -140,7 +140,7 @@
 }
 
 .valorant-button:hover {
-  color: #ece8e1;
+  color: var(--color-foreground);
 }
 
 .valorant-button:hover > p > span.bg {
@@ -148,7 +148,7 @@
 }
 
 .valorant-button:hover > p > span.text:after {
-  background: #ece8e1;
+  background: var(--color-foreground);
 }
 
 /*# sourceMappingURL=app_components_animated-button_d83b6192.css.map*/

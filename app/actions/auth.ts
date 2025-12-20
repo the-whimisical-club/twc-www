@@ -15,17 +15,15 @@ export async function sendOTP(formData: FormData) {
     const cookieStore = cookies()
     const supabase = await createClient(cookieStore)
 
-    // Note: For OTP codes to be sent instead of magic links, you must modify
-    // the Magic Link email template in Supabase Dashboard:
-    // Authentication > Email Templates > Magic Link
-    // Replace the template content to include {{ .Token }} variable:
-    // <h2>One time login code</h2>
-    // <p>Please enter this code: {{ .Token }}</p>
+    // For OTP codes instead of magic links:
+    // 1. Go to Supabase Dashboard > Authentication > Email Templates > Magic Link
+    // 2. Replace template with: <h2>One time login code</h2><p>Please enter this code: {{ .Token }}</p>
+    // 3. Save the template
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: true,
-        // Don't set emailRedirectTo to ensure OTP mode (not magic link)
+        // Explicitly don't set emailRedirectTo - this forces OTP mode when template uses {{ .Token }}
       },
     })
 
