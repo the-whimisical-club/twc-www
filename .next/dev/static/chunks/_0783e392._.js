@@ -19,6 +19,7 @@ function IntroText({ texts }) {
     const [isTyping, setIsTyping] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(true);
     const [isDeleting, setIsDeleting] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
     const [shouldScroll, setShouldScroll] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
+    const [hasStarted, setHasStarted] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
     // Calculate typing speed with easing curve - slower at start, faster as it goes
     const getTypingDelay = (charIndex, textLength)=>{
         const currentText = texts[currentTextIndex];
@@ -35,9 +36,22 @@ function IntroText({ texts }) {
         // After first word, use normal speed
         return 50;
     };
+    // Initial 1 second delay before animation starts
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "IntroText.useEffect": ()=>{
-            if (texts.length === 0) return;
+            const delayTimeout = setTimeout({
+                "IntroText.useEffect.delayTimeout": ()=>{
+                    setHasStarted(true);
+                }
+            }["IntroText.useEffect.delayTimeout"], 1500);
+            return ({
+                "IntroText.useEffect": ()=>clearTimeout(delayTimeout)
+            })["IntroText.useEffect"];
+        }
+    }["IntroText.useEffect"], []);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "IntroText.useEffect": ()=>{
+            if (!hasStarted || texts.length === 0) return;
             const currentText = texts[currentTextIndex];
             if (!currentText) return;
             let timeout;
@@ -63,13 +77,13 @@ function IntroText({ texts }) {
                         }["IntroText.useEffect"], 3000);
                         return;
                     } else {
-                        // Wait 3 seconds then start deleting
+                        // Wait 1 second then start deleting
                         timeout = setTimeout({
                             "IntroText.useEffect": ()=>{
                                 setIsTyping(false);
                                 setIsDeleting(true);
                             }
-                        }["IntroText.useEffect"], 2000);
+                        }["IntroText.useEffect"], 1000);
                     }
                 }
             } else if (isDeleting) {
@@ -99,7 +113,8 @@ function IntroText({ texts }) {
         currentTextIndex,
         isTyping,
         isDeleting,
-        texts
+        texts,
+        hasStarted
     ]);
     // Handle scroll to next section with slow animation
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
@@ -138,11 +153,11 @@ function IntroText({ texts }) {
         children: displayedText
     }, void 0, false, {
         fileName: "[project]/app/components/intro-text.tsx",
-        lineNumber: 123,
+        lineNumber: 133,
         columnNumber: 5
     }, this);
 }
-_s(IntroText, "3hkYReUyz1JJYtlluzsjUpxd234=");
+_s(IntroText, "t16BOmcdgSO36WijxisBNBH5yUc=");
 _c = IntroText;
 var _c;
 __turbopack_context__.k.register(_c, "IntroText");
