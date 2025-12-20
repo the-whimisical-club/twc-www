@@ -5,34 +5,44 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 export async function sendOTP(formData: FormData) {
-  const email = formData.get('email') as string
+  try {
+    const email = formData.get('email') as string
 
-  if (!email) {
-    return { error: 'Email is required' }
+    if (!email) {
+      return { error: 'Email is required' }
+    }
+
+    const cookieStore = cookies()
+    const supabase = await createClient(cookieStore)
+
+    // Note: For OTP codes to be sent instead of magic links, you must modify
+    // the Magic Link email template in Supabase Dashboard:
+    // Authentication > Email Templates > Magic Link
+    // Replace the template content to include {{ .Token }} variable:
+    // <h2>One time login code</h2>
+    // <p>Please enter this code: {{ .Token }}</p>
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        // Don't set emailRedirectTo to ensure OTP mode (not magic link)
+      },
+    })
+
+    if (error) {
+      console.error('Supabase OTP error:', error)
+      return { error: error.message }
+    }
+
+    return { success: true, email }
+  } catch (err) {
+    console.error('sendOTP error:', err)
+    return { 
+      error: err instanceof Error 
+        ? err.message 
+        : 'Failed to send verification code. Please check your connection and try again.' 
+    }
   }
-
-  const cookieStore = cookies()
-  const supabase = await createClient(cookieStore)
-
-  // Note: For OTP codes to be sent instead of magic links, you must modify
-  // the Magic Link email template in Supabase Dashboard:
-  // Authentication > Email Templates > Magic Link
-  // Replace the template content to include {{ .Token }} variable:
-  // <h2>One time login code</h2>
-  // <p>Please enter this code: {{ .Token }}</p>
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      shouldCreateUser: true,
-      // Don't set emailRedirectTo to ensure OTP mode (not magic link)
-    },
-  })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  return { success: true, email }
 }
 
 export async function verifyOTP(formData: FormData) {

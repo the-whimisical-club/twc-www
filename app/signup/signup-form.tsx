@@ -15,18 +15,27 @@ export default function SignupForm() {
     setLoading(true)
     setError(null)
 
-    const formData = new FormData()
-    formData.append('email', email)
+    try {
+      const formData = new FormData()
+      formData.append('email', email)
 
-    const result = await sendOTP(formData)
+      const result = await sendOTP(formData)
 
-    if (result.error) {
-      setError(result.error)
+      if (result?.error) {
+        setError(result.error)
+        setLoading(false)
+      } else if (result?.success) {
+        // Store email in sessionStorage for the verify page
+        sessionStorage.setItem('otp_email', email)
+        router.push('/verify')
+      } else {
+        setError('An unexpected error occurred. Please try again.')
+        setLoading(false)
+      }
+    } catch (err) {
+      console.error('Signup error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to send verification code. Please try again.')
       setLoading(false)
-    } else {
-      // Store email in sessionStorage for the verify page
-      sessionStorage.setItem('otp_email', email)
-      router.push('/verify')
     }
   }
 
@@ -53,8 +62,8 @@ export default function SignupForm() {
           </div>
 
           {error && (
-            <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
+            <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded" role="alert">
+              <strong>Error:</strong> {error}
             </div>
           )}
 

@@ -3,7 +3,7 @@ import "./globals.css";
 import ScrollToTop from "./components/scroll-to-top";
 
 export const metadata: Metadata = {
-  title: "the whimsical club",
+  title: "the whimsy club",
 };
 
 export default function RootLayout({
