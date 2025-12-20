@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import ScrollToTop from "./components/scroll-to-top";
 
 export const metadata: Metadata = {
   title: "the whimsical club",
@@ -15,7 +16,10 @@ export default function RootLayout({
       <head>
         <link rel="stylesheet" href="https://use.typekit.net/lhg5zwj.css" />
       </head>
-      <body className="h-full m-0 p-0">{children}</body>
+      <body className="h-full m-0 p-0">
+        <ScrollToTop />
+        {children}
+      </body>
     </html>
   );
 }
