@@ -6,7 +6,7 @@ export default function Page() {
     <div className="bg-background">
       {/* Introduction */}
       <section className="flex justify-center items-center h-screen w-screen">
-        <IntroText texts={["aloha", "welcome to", "the whimsical club"]} />
+        <IntroText texts={["aloha", "welcome to", "the whimsy club"]} />
       </section>
       
       {/* Description */}
