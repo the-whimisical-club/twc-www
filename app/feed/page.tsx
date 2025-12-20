@@ -24,7 +24,7 @@ export default async function FeedPage() {
 
   return (
     <div className="bg-background min-h-screen p-8">
-      <NavButtons />
+      <NavButtons username={user.email || 'user'} />
       <div className="max-w-4xl mx-auto">
         <h1 className="text-6xl text-foreground font-stack-sans-notch mb-8">
           feed

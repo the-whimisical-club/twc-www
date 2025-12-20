@@ -1,20 +1,4 @@
 {
-  "node": {
-    "40b1307cf89efb62788615909f2b1002c7ea425c97": {
-      "workers": {
-        "app/home/page": {
-          "moduleId": "[project]/.next-internal/server/app/home/page/actions.js { ACTIONS_MODULE0 => \"[project]/app/actions/images.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
-          "async": false,
-          "exportedName": "uploadImage",
-          "filename": "app/actions/images.ts"
-        }
-      },
-      "layer": {
-        "app/home/page": "action-browser"
-      },
-      "exportedName": "uploadImage",
-      "filename": "app/actions/images.ts"
-    }
-  },
+  "node": {},
   "edge": {}
 }

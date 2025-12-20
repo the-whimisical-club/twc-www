@@ -7,7 +7,7 @@ import { useRef, useState, useEffect } from 'react'
 import ImageUploadForm from './image-upload-form'
 import type { ImageUploadFormHandle } from './image-upload-form'
 
-export default function NavButtons() {
+export default function NavButtons({ username }: { username?: string }) {
   const pathname = usePathname()
   const uploadFormRef = useRef<ImageUploadFormHandle>(null)
   const isHomePage = pathname === '/home'
@@ -38,13 +38,13 @@ export default function NavButtons() {
 
   return (
     <>
-      {isHomePage && <ImageUploadForm ref={uploadFormRef} onStateChange={setUploadState} />}
+      {isHomePage && <ImageUploadForm ref={uploadFormRef} onStateChange={setUploadState} username={username} />}
       <div className="fixed top-4 left-1/2 transform -translate-x-1/2 flex gap-4 z-50">
         {isHomePage ? (
           <button
             onClick={handleUploadClick}
             disabled={uploadState.uploading}
-            className="relative p-3 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative w-12 h-12 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             aria-label="Upload"
           >
             {uploadState.uploading || uploadState.success ? (
@@ -92,7 +92,7 @@ export default function NavButtons() {
         ) : (
           <Link
             href="/home"
-            className="p-3 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity"
+            className="w-12 h-12 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity flex items-center justify-center"
             aria-label="Home"
           >
             <Home size={24} />
@@ -100,7 +100,7 @@ export default function NavButtons() {
         )}
         <Link
           href="/feed"
-          className="p-3 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity"
+          className="w-12 h-12 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity flex items-center justify-center"
           aria-label="Feed"
         >
           <Grid3x3 size={24} />

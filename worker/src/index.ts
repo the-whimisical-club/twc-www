@@ -24,6 +24,14 @@ const ALLOWED_MIME_TYPES = [
   'image/svg+xml',
 ];
 
+// Sanitize filename to prevent path traversal
+function sanitizeFilename(filename: string): string {
+  // Remove any path components and keep only the filename
+  const basename = filename.split('/').pop() || filename;
+  // Remove any dangerous characters
+  return basename.replace(/[^a-zA-Z0-9._-]/g, '');
+}
+
 // Max file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -92,10 +100,10 @@ export default {
 
     // PUT: Upload image to R2
     if (method === 'PUT') {
-      const contentType = request.headers.get('Content-Type');
+      const contentType = request.headers.get('Content-Type') || 'image/webp';
       
       // Validate content type
-      if (!contentType || !ALLOWED_MIME_TYPES.includes(contentType)) {
+      if (!ALLOWED_MIME_TYPES.includes(contentType)) {
         return new Response(
           JSON.stringify({ 
             error: `Invalid content type. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}` 
@@ -127,11 +135,23 @@ export default {
         );
       }
 
-      // Generate unique filename: timestamp-random.extension
-      const extension = contentType.split('/')[1] || 'jpg';
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(2, 15);
-      const filename = `${timestamp}-${random}.${extension}`;
+      // Use filename from path if provided, otherwise generate one
+      let filename: string;
+      const pathKey = pathname.slice(1); // Remove leading slash
+      
+      if (pathKey) {
+        // Use provided filename (sanitized)
+        filename = sanitizeFilename(pathKey);
+        // Ensure it ends with .webp
+        if (!filename.endsWith('.webp')) {
+          filename = filename.replace(/\.[^.]+$/, '') + '.webp';
+        }
+      } else {
+        // Generate unique filename: timestamp-random.webp
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 15);
+        filename = `${timestamp}-${random}.webp`;
+      }
 
       try {
         // Read the request body
@@ -153,10 +173,10 @@ export default {
           );
         }
 
-        // Upload to R2
+        // Upload to R2 (always use image/webp content type)
         await env.BUCKET.put(filename, body, {
           httpMetadata: {
-            contentType: contentType,
+            contentType: 'image/webp',
           },
         });
 
