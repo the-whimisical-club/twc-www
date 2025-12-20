@@ -34,11 +34,11 @@ export default function IntroText({ texts }: IntroTextProps) {
     return 50;
   };
 
-  // Initial 3 second delay before animation starts
+  // Initial 1 second delay before animation starts
   useEffect(() => {
     const delayTimeout = setTimeout(() => {
       setHasStarted(true);
-    }, 3000);
+    }, 1500);
 
     return () => clearTimeout(delayTimeout);
   }, []);
@@ -70,11 +70,11 @@ export default function IntroText({ texts }: IntroTextProps) {
           }, 3000);
           return;
         } else {
-          // Wait 3 seconds then start deleting
+          // Wait 1 second then start deleting
           timeout = setTimeout(() => {
             setIsTyping(false);
             setIsDeleting(true);
-          }, 2000);
+          }, 1000);
         }
       }
     } else if (isDeleting) {
