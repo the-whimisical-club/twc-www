@@ -15,7 +15,7 @@ export default function Page() {
           wtf is this?
         </div>
         <div className="flex flex-col text-4xl text-background font-stack-sans-notch gap-8">
-          <p>this is the whimsical club: a private space away from ads, algorithms, and noise. i just want to see what my friends are actually up to.</p>
+          <p>this is the whimsy club: a private space away from ads, algorithms, and noise. i just want to see what my friends are actually up to.</p>
           <p>if you're here, it's because you were invited. welcome. we share notes, photos, and moments from our lives.</p>
           <p>this is a place only for friends. no bullshit here.</p>
           <p>anyways, welcome :D</p>
