@@ -48,14 +48,14 @@ export default function VerifyPage() {
   return (
     <div className="flex justify-center items-center min-h-screen bg-background">
       <div className="w-full max-w-md p-8">
-        <h1 className="text-4xl font-dashing mb-2 text-center">Verify Email</h1>
-        <p className="text-center text-sm text-gray-600 mb-8">
+        <h1 className="text-4xl font-dark-london mb-2 text-center text-foreground">VERIFY EMAIL</h1>
+        <p className="text-center text-sm text-foreground-50 mb-8">
           Enter the 8-digit code sent to {email}
         </p>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="code" className="block text-sm font-medium mb-2">
+            <label htmlFor="code" className="block text-sm font-medium mb-2 text-foreground">
               Verification Code
             </label>
             <input
@@ -93,7 +93,7 @@ export default function VerifyPage() {
               sessionStorage.removeItem('otp_email')
               router.push('/signup')
             }}
-            className="text-sm text-gray-600 hover:text-foreground underline"
+            className="text-sm text-foreground-50 hover:text-foreground underline"
           >
             Use a different email
           </button>

@@ -104,7 +104,18 @@ async function verifyOTP(formData) {
         };
     }
     if (data.session) {
-        (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$components$2f$navigation$2e$react$2d$server$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["redirect"])('/');
+        // Insert email into waiting_approval table
+        // Try to insert, but don't fail if email already exists
+        const { error: insertError } = await supabase.from('waiting_approval').insert({
+            email
+        });
+        // If error is due to duplicate, that's okay - email is already in the table
+        // For other errors, log but don't block the user from logging in
+        if (insertError && insertError.code !== '23505') {
+            // 23505 is PostgreSQL unique violation error code
+            console.error('Error adding email to waiting_approval:', insertError);
+        }
+        (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$components$2f$navigation$2e$react$2d$server$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["redirect"])('/home');
     }
     return {
         error: 'Verification failed'

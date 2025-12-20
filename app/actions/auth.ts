@@ -70,7 +70,7 @@ export async function verifyOTP(formData: FormData) {
       console.error('Error adding email to waiting_approval:', insertError)
     }
 
-    redirect('/')
+    redirect('/home')
   }
 
   return { error: 'Verification failed' }

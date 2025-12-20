@@ -20,6 +20,7 @@
 @theme {
   --color-background: #0C0C0C;
   --color-foreground: #EEEEEE;
+  --color-foreground-50: rgba(238, 238, 238, 0.5);
 }
 
 @layer utilities {

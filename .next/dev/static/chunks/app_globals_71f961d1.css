@@ -31,7 +31,6 @@
     --color-red-100: #ffe2e2;
     --color-red-400: #ff6568;
     --color-red-700: #bf000f;
-    --color-gray-600: #4a5565;
     --spacing: .25rem;
     --container-md: 28rem;
     --text-sm: .875rem;
@@ -51,6 +50,7 @@
     --default-mono-font-family: var(--font-mono);
     --color-background: #0c0c0c;
     --color-foreground: #eee;
+    --color-foreground-50: #eeeeee80;
   }
 
   @supports (color: lab(0% 0 0)) {
@@ -58,7 +58,6 @@
       --color-red-100: lab(92.243% 10.2865 3.83865);
       --color-red-400: lab(63.7053% 60.745 31.3109);
       --color-red-700: lab(40.4273% 67.2623 53.7441);
-      --color-gray-600: lab(35.6337% -1.58697 -10.8425);
     }
   }
 }
@@ -340,6 +339,10 @@
     display: flex;
   }
 
+  .table {
+    display: table;
+  }
+
   .h-fit {
     height: fit-content;
   }
@@ -378,6 +381,10 @@
 
   .justify-center {
     justify-content: center;
+  }
+
+  .gap-4 {
+    gap: calc(var(--spacing) * 4);
   }
 
   .gap-8 {
@@ -493,8 +500,8 @@
     color: var(--color-foreground);
   }
 
-  .text-gray-600 {
-    color: var(--color-gray-600);
+  .text-foreground-50 {
+    color: var(--color-foreground-50);
   }
 
   .text-red-700 {
