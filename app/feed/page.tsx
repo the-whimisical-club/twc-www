@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getImages } from '@/app/actions/images'
+import NavButtons from '@/app/components/nav-buttons'
 
 export default async function FeedPage() {
   const cookieStore = cookies()
@@ -23,6 +24,7 @@ export default async function FeedPage() {
 
   return (
     <div className="bg-background min-h-screen p-8">
+      <NavButtons />
       <div className="max-w-4xl mx-auto">
         <h1 className="text-6xl text-foreground font-stack-sans-notch mb-8">
           feed
