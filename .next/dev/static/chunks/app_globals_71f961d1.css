@@ -30,9 +30,12 @@
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     --color-red-100: #ffe2e2;
     --color-red-400: #ff6568;
+    --color-red-500: #fb2c36;
     --color-red-700: #bf000f;
+    --color-green-500: #00c758;
     --spacing: .25rem;
     --container-md: 28rem;
+    --container-4xl: 56rem;
     --text-sm: .875rem;
     --text-sm--line-height: calc(1.25 / .875);
     --text-2xl: 1.5rem;
@@ -58,7 +61,9 @@
     :root, :host {
       --color-red-100: lab(92.243% 10.2865 3.83865);
       --color-red-400: lab(63.7053% 60.745 31.3109);
+      --color-red-500: lab(55.4814% 75.0732 48.8528);
       --color-red-700: lab(40.4273% 67.2623 53.7441);
+      --color-green-500: lab(70.5521% -66.5147 45.8073);
     }
   }
 }
@@ -316,6 +321,10 @@
     margin: calc(var(--spacing) * 0);
   }
 
+  .mx-auto {
+    margin-inline: auto;
+  }
+
   .mt-4 {
     margin-top: calc(var(--spacing) * 4);
   }
@@ -340,8 +349,16 @@
     display: flex;
   }
 
+  .grid {
+    display: grid;
+  }
+
   .table {
     display: table;
+  }
+
+  .aspect-square {
+    aspect-ratio: 1;
   }
 
   .h-5 {
@@ -376,12 +393,20 @@
     width: 100vw;
   }
 
+  .max-w-4xl {
+    max-width: var(--container-4xl);
+  }
+
   .max-w-md {
     max-width: var(--container-md);
   }
 
   .animate-spin {
     animation: var(--animate-spin);
+  }
+
+  .grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 
   .flex-col {
@@ -414,6 +439,10 @@
     margin-block-end: calc(calc(var(--spacing) * 6) * calc(1 - var(--tw-space-y-reverse)));
   }
 
+  .overflow-hidden {
+    overflow: hidden;
+  }
+
   .rounded {
     border-radius: .25rem;
   }
@@ -443,8 +472,32 @@
     background-color: var(--color-foreground);
   }
 
+  .bg-green-500\/20 {
+    background-color: #00c75833;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-green-500\/20 {
+      background-color: color-mix(in oklab, var(--color-green-500) 20%, transparent);
+    }
+  }
+
   .bg-red-100 {
     background-color: var(--color-red-100);
+  }
+
+  .bg-red-500\/20 {
+    background-color: #fb2c3633;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-red-500\/20 {
+      background-color: color-mix(in oklab, var(--color-red-500) 20%, transparent);
+    }
+  }
+
+  .object-cover {
+    object-fit: cover;
   }
 
   .p-0 {
@@ -467,8 +520,16 @@
     padding-inline: calc(var(--spacing) * 4);
   }
 
+  .px-6 {
+    padding-inline: calc(var(--spacing) * 6);
+  }
+
   .py-2 {
     padding-block: calc(var(--spacing) * 2);
+  }
+
+  .py-3 {
+    padding-block: calc(var(--spacing) * 3);
   }
 
   .text-center {
@@ -521,6 +582,14 @@
     color: var(--color-foreground-50);
   }
 
+  .text-green-500 {
+    color: var(--color-green-500);
+  }
+
+  .text-red-500 {
+    color: var(--color-red-500);
+  }
+
   .text-red-700 {
     color: var(--color-red-700);
   }
@@ -535,6 +604,39 @@
 
   .opacity-75 {
     opacity: .75;
+  }
+
+  .file\:mr-4::file-selector-button {
+    margin-right: calc(var(--spacing) * 4);
+  }
+
+  .file\:cursor-pointer::file-selector-button {
+    cursor: pointer;
+  }
+
+  .file\:rounded::file-selector-button {
+    border-radius: .25rem;
+  }
+
+  .file\:border-0::file-selector-button {
+    border-style: var(--tw-border-style);
+    border-width: 0;
+  }
+
+  .file\:bg-foreground::file-selector-button {
+    background-color: var(--color-foreground);
+  }
+
+  .file\:px-4::file-selector-button {
+    padding-inline: calc(var(--spacing) * 4);
+  }
+
+  .file\:py-2::file-selector-button {
+    padding-block: calc(var(--spacing) * 2);
+  }
+
+  .file\:text-background::file-selector-button {
+    color: var(--color-background);
   }
 
   @media (hover: hover) {
@@ -569,6 +671,18 @@
 
   .disabled\:opacity-50:disabled {
     opacity: .5;
+  }
+
+  @media (min-width: 48rem) {
+    .md\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .lg\:grid-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
 
   .text-heading {

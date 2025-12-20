@@ -7,6 +7,7 @@
     "start": "next start"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251220.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/bun": "latest",
     "@types/react": "^19.2.7",
