@@ -4,6 +4,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from './utils/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
+  // Skip middleware for POST requests (server actions)
+  if (request.method === 'POST') {
+    return NextResponse.next()
+  }
+
   try {
     // Create Supabase client and get response object
     const { supabase, response } = createClient(request)
