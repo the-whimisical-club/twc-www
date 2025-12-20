@@ -24,13 +24,12 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/esm/server/web/exports/index.js [middleware-edge] (ecmascript)");
 ;
 ;
-const supabaseUrl = ("TURBOPACK compile-time value", "https://pmkagantruamvjaijvux.supabase.co");
-const supabaseKey = ("TURBOPACK compile-time value", "sb_publishable_FQ29b5yVCZVgZTrBUsu7MA_ze0M5GRW");
-if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
-;
 const createClient = (request)=>{
-    // Create an unmodified response
-    let supabaseResponse = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["NextResponse"].next({
+    const supabaseUrl = ("TURBOPACK compile-time value", "https://pmkagantruamvjaijvux.supabase.co");
+    const supabaseKey = ("TURBOPACK compile-time value", "sb_publishable_FQ29b5yVCZVgZTrBUsu7MA_ze0M5GRW");
+    if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+    ;
+    let response = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["NextResponse"].next({
         request: {
             headers: request.headers
         }
@@ -41,17 +40,15 @@ const createClient = (request)=>{
                 return request.cookies.getAll();
             },
             setAll (cookiesToSet) {
-                cookiesToSet.forEach(({ name, value, options })=>request.cookies.set(name, value));
-                supabaseResponse = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["NextResponse"].next({
-                    request
+                cookiesToSet.forEach(({ name, value, options })=>{
+                    response.cookies.set(name, value, options);
                 });
-                cookiesToSet.forEach(({ name, value, options })=>supabaseResponse.cookies.set(name, value, options));
             }
         }
     });
     return {
         supabase,
-        response: supabaseResponse
+        response
     };
 };
 }),
