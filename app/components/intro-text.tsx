@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { typewriterSound } from "@/app/utils/typewriter-sound";
 
 interface IntroTextProps {
   texts: string[];
@@ -13,6 +14,8 @@ export default function IntroText({ texts }: IntroTextProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [shouldScroll, setShouldScroll] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [hasClicked, setHasClicked] = useState(false);
+  const previousTextRef = useRef("");
 
   // Calculate typing speed with easing curve - slower at start, faster as it goes
   const getTypingDelay = (charIndex: number, textLength: number): number => {
@@ -34,14 +37,63 @@ export default function IntroText({ texts }: IntroTextProps) {
     return 50;
   };
 
-  // Initial 1 second delay before animation starts
+  // Handle click to start
+  const handleClickToStart = useCallback(() => {
+    setHasClicked(true);
+    // Initialize audio context on click
+    if (typeof window !== 'undefined' && 'AudioContext' in window) {
+      // Audio will be initialized when first sound plays
+    }
+  }, []);
+
+  // Listen for clicks anywhere on the page
   useEffect(() => {
+    if (hasClicked) return;
+
+    const handleDocumentClick = (e: MouseEvent | TouchEvent) => {
+      handleClickToStart();
+    };
+
+    // Listen for both mouse clicks and touch events
+    document.addEventListener('click', handleDocumentClick);
+    document.addEventListener('touchstart', handleDocumentClick, { passive: true });
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+      document.removeEventListener('touchstart', handleDocumentClick);
+    };
+  }, [hasClicked, handleClickToStart]);
+
+  // Play sound effects when text changes
+  useEffect(() => {
+    if (!hasStarted) return;
+
+    const previousText = previousTextRef.current;
+    
+    if (displayedText.length > previousText.length) {
+      // Character was added - play typing sound
+      const newChar = displayedText[displayedText.length - 1];
+      if (newChar) {
+        typewriterSound.playSound(newChar);
+      }
+    } else if (displayedText.length < previousText.length) {
+      // Character was removed - play delete sound
+      typewriterSound.playDeleteSound();
+    }
+
+    previousTextRef.current = displayedText;
+  }, [displayedText, hasStarted]);
+
+  // Start animation after click
+  useEffect(() => {
+    if (!hasClicked) return;
+
     const delayTimeout = setTimeout(() => {
       setHasStarted(true);
     }, 1500);
 
     return () => clearTimeout(delayTimeout);
-  }, []);
+  }, [hasClicked]);
 
   useEffect(() => {
     if (!hasStarted || texts.length === 0) return;
@@ -100,6 +152,9 @@ export default function IntroText({ texts }: IntroTextProps) {
   // Handle scroll to next section with slow animation
   useEffect(() => {
     if (shouldScroll) {
+      // Play scroll sound when animation starts
+      typewriterSound.playScrollSound();
+
       const nextSection = document.getElementById('next-section');
       if (nextSection) {
         const targetPosition = nextSection.offsetTop;
@@ -130,8 +185,17 @@ export default function IntroText({ texts }: IntroTextProps) {
   }, [shouldScroll]);
 
   return (
-    <div className="text-heading">
-      {displayedText}
+    <div className="relative">
+      {!hasClicked && (
+        <div className="text-heading font-dashing text-foreground opacity-20">
+          click to start
+        </div>
+      )}
+      {hasClicked && (
+        <div className="text-heading">
+          {displayedText}
+        </div>
+      )}
     </div>
   );
 }

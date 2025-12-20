@@ -473,6 +473,10 @@
     animation: var(--animate-spin);
   }
 
+  .cursor-pointer {
+    cursor: pointer;
+  }
+
   .grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
@@ -660,6 +664,10 @@
 
   .underline {
     text-decoration-line: underline;
+  }
+
+  .opacity-20 {
+    opacity: .2;
   }
 
   .opacity-25 {
