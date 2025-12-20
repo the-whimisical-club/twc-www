@@ -43,7 +43,7 @@ async function convertToWebP(file: File): Promise<Blob> {
   })
 }
 
-// Generate filename: dd_mm_yyyy_username_originalext.webp
+// Generate filename: username/dd_mm_yyyy_username_originalext.webp
 function generateFilename(originalFile: File, email: string): string {
   const now = new Date()
   const dd = String(now.getDate()).padStart(2, '0')
@@ -59,7 +59,8 @@ function generateFilename(originalFile: File, email: string): string {
   // Sanitize username (remove special chars, keep alphanumeric and underscore)
   const sanitizedUsername = username.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
   
-  return `${dd}_${mm}_${yyyy}_${sanitizedUsername}_${originalExt}.webp`
+  // Return with username as folder prefix: username/dd_mm_yyyy_username_originalext.webp
+  return `${sanitizedUsername}/${dd}_${mm}_${yyyy}_${sanitizedUsername}_${originalExt}.webp`
 }
 
 interface ImageUploadFormProps {

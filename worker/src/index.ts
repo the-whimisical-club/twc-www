@@ -24,12 +24,18 @@ const ALLOWED_MIME_TYPES = [
   'image/svg+xml',
 ];
 
-// Sanitize filename to prevent path traversal
+// Sanitize filename to prevent path traversal while preserving user folders
 function sanitizeFilename(filename: string): string {
-  // Remove any path components and keep only the filename
-  const basename = filename.split('/').pop() || filename;
-  // Remove any dangerous characters
-  return basename.replace(/[^a-zA-Z0-9._-]/g, '');
+  // Split into path components
+  const parts = filename.split('/');
+  // Sanitize each part individually to prevent path traversal
+  const sanitizedParts = parts.map(part => {
+    // Remove any dangerous characters but keep alphanumeric, dots, underscores, hyphens
+    return part.replace(/[^a-zA-Z0-9._-]/g, '');
+  }).filter(part => part.length > 0); // Remove empty parts
+  
+  // Rejoin with forward slashes (this preserves user folder structure)
+  return sanitizedParts.join('/');
 }
 
 // Max file size: 10MB
