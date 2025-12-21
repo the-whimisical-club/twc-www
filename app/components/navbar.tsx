@@ -53,7 +53,7 @@ export default function Navbar({ username }: { username?: string }) {
   return (
     <>
       <ImageUploadForm ref={uploadFormRef} username={username} />
-      <nav className="flex flex-row z-50 bg-background items-center justify-center gap-4 py-8">
+      <nav className="flex flex-row z-50 bg-background items-center justify-center gap-4 py-4 md:py-8">
         <HomeButton />
         <UploadButton onClick={handleUploadClick} />
         <FeedButton />
