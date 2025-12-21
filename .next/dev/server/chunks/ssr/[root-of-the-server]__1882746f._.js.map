@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 14, "column": 0}, "map": {"version":3,"sources":["file:///Users/avan/github/twc-www/app/components/intro-text.tsx"],"sourcesContent":["interface IntroTextProps {\n  children: React.ReactNode;\n}\n\nexport default function IntroText({ children }: IntroTextProps) {\n  return (\n    <div className=\"text-foreground font-['DarkLondon-Regular','Dark_London',system-ui,sans-serif] text-8xl\">\n      {children}\n    </div>\n  );\n}\n\n"],"names":[],"mappings":";;;;;;AAIe,SAAS,UAAU,EAAE,QAAQ,EAAkB;IAC5D,qBACE,8OAAC;QAAI,WAAU;kBACZ;;;;;;AAGP"}},
-    {"offset": {"line": 34, "column": 0}, "map": {"version":3,"sources":["file:///Users/avan/github/twc-www/app/page.tsx"],"sourcesContent":["import IntroText from \"./components/intro-text\";\n\nexport default function Page() {\n  return (\n    <div className=\"flex bg-background h-screen w-screen\">\n      <IntroText>the whimsical club</IntroText>\n    </div>\n  );\n}\n"],"names":[],"mappings":";;;;;AAAA;;;AAEe,SAAS;IACtB,qBACE,8OAAC;QAAI,WAAU;kBACb,cAAA,8OAAC,8IAAS;sBAAC;;;;;;;;;;;AAGjB"}}]
-}

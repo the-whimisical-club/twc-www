@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 14, "column": 0}, "map": {"version":3,"sources":["file:///Users/avan/github/twc-www/app/page.tsx"],"sourcesContent":["export default function Page() {\n  return (\n    <div className=\"flex bg-background h-screen w-screen\">\n      <div className=\"text-foreground font-['DarkLondon-Regular','Dark_London',system-ui,sans-serif] text-8xl\">\n        the whimsical club\n      </div>\n    </div>\n  );\n}\n"],"names":[],"mappings":";;;;;;AAAe,SAAS;IACtB,qBACE,8OAAC;QAAI,WAAU;kBACb,cAAA,8OAAC;YAAI,WAAU;sBAA0F;;;;;;;;;;;AAK/G"}}]
-}

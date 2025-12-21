@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/avan/github/twc-www/app/components/scroll-to-top.tsx"],"sourcesContent":["\"use client\";\n\nimport { useEffect } from \"react\";\nimport { usePathname } from \"next/navigation\";\n\nexport default function ScrollToTop() {\n  const pathname = usePathname();\n\n  useEffect(() => {\n    // Scroll to top on page load, reload, and navigation\n    window.scrollTo({ top: 0, left: 0, behavior: \"instant\" });\n  }, [pathname]);\n\n  return null;\n}\n\n"],"names":[],"mappings":";;;;AAEA;AACA;;AAHA;;;AAKe,SAAS;;IACtB,MAAM,WAAW,IAAA,oJAAW;IAE5B,IAAA,0KAAS;iCAAC;YACR,qDAAqD;YACrD,OAAO,QAAQ,CAAC;gBAAE,KAAK;gBAAG,MAAM;gBAAG,UAAU;YAAU;QACzD;gCAAG;QAAC;KAAS;IAEb,OAAO;AACT;GATwB;;QACL,oJAAW;;;KADN"}},
-    {"offset": {"line": 45, "column": 0}, "map": {"version":3,"sources":["file:///Users/avan/github/twc-www/node_modules/next/navigation.js"],"sourcesContent":["module.exports = require('./dist/client/components/navigation')\n"],"names":[],"mappings":"AAAA,OAAO,OAAO","ignoreList":[0]}}]
-}

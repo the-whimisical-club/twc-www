@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/avan/github/twc-www/app/layout.tsx"],"sourcesContent":["import type { Metadata } from \"next\";\nimport \"./globals.css\";\n\nexport const metadata: Metadata = {\n  title: \"the whimsical club\",\n};\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <html lang=\"en\" className=\"h-full\">\n      <head>\n        <link rel=\"stylesheet\" href=\"https://use.typekit.net/lhg5zwj.css\" />\n      </head>\n      <body className=\"h-full m-0 p-0\">{children}</body>\n    </html>\n  );\n}\n"],"names":[],"mappings":";;;;;;;;;AAGO,MAAM,WAAqB;IAChC,OAAO;AACT;AAEe,SAAS,WAAW,EACjC,QAAQ,EAGT;IACC,qBACE,8OAAC;QAAK,MAAK;QAAK,WAAU;;0BACxB,8OAAC;0BACC,cAAA,8OAAC;oBAAK,KAAI;oBAAa,MAAK;;;;;;;;;;;0BAE9B,8OAAC;gBAAK,WAAU;0BAAkB;;;;;;;;;;;;AAGxC"}},
-    {"offset": {"line": 54, "column": 0}, "map": {"version":3,"sources":["file:///Users/avan/github/twc-www/node_modules/next/src/server/route-modules/app-page/vendored/rsc/react-jsx-dev-runtime.ts"],"sourcesContent":["module.exports = (\n  require('../../module.compiled') as typeof import('../../module.compiled')\n).vendored['react-rsc']!.ReactJsxDevRuntime\n"],"names":["module","exports","require","vendored","ReactJsxDevRuntime"],"mappings":"AAAAA,OAAOC,OAAO,GACZC,QAAQ,4HACRC,QAAQ,CAAC,YAAY,CAAEC,kBAAkB","ignoreList":[0]}}]
-}
