@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Upload, Grid3x3, Home } from 'lucide-react'
+import { Upload, Grid3x3, Home, User } from 'lucide-react'
 import { useRef } from 'react'
 import ImageUploadForm from './image-upload-form'
 import type { ImageUploadFormHandle } from './image-upload-form'
@@ -42,6 +42,18 @@ function FeedButton() {
   )
 }
 
+function ProfileButton() {
+  return (
+    <Link
+      href="/profile"
+      className="w-12 h-12 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity flex items-center justify-center"
+      aria-label="Profile"
+    >
+      <User size={24} />
+    </Link>
+  )
+}
+
 export default function Navbar({ username }: { username?: string }) {
   const uploadFormRef = useRef<ImageUploadFormHandle>(null)
 
@@ -57,6 +69,7 @@ export default function Navbar({ username }: { username?: string }) {
         <HomeButton />
         <UploadButton onClick={handleUploadClick} />
         <FeedButton />
+        <ProfileButton />
       </nav>
     </>
   )

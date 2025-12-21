@@ -44,15 +44,22 @@ export async function ensureUser(authUserId: string, email: string): Promise<{ i
     // Try to get existing user
     const { data: existingUser, error: selectError } = await supabase
       .from('users')
-      .select('id, username')
+      .select('id, username, display_name')
       .eq('auth_user_id', authUserId)
       .single()
 
     if (existingUser) {
-      // User exists, update email if it changed
+      // User exists, update email/username if changed, but preserve display_name
+      const updateData: { email: string; username: string; display_name?: string } = { email, username }
+      
+      // Only set display_name if it's null (for existing users without display_name)
+      if (!existingUser.display_name) {
+        updateData.display_name = username
+      }
+
       const { data: updatedUser, error: updateError } = await supabase
         .from('users')
-        .update({ email, username })
+        .update(updateData)
         .eq('id', existingUser.id)
         .select('id, username')
         .single()
@@ -65,13 +72,14 @@ export async function ensureUser(authUserId: string, email: string): Promise<{ i
       return updatedUser || existingUser
     }
 
-    // User doesn't exist, create them
+    // User doesn't exist, create them with display_name set to username initially
     const { data: newUser, error: insertError } = await supabase
       .from('users')
       .insert({
         auth_user_id: authUserId,
         email,
         username,
+        display_name: username, // Set display_name to username initially
       })
       .select('id, username')
       .single()

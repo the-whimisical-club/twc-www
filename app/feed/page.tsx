@@ -30,10 +30,10 @@ export default async function FeedPage() {
                   />
                 </div>
                 {(() => {
-                  const user = Array.isArray(image.users) ? image.users[0] : (image.users as { username: string } | null);
+                  const user = Array.isArray(image.users) ? image.users[0] : (image.users as { username: string; display_name: string | null } | null);
                   return user ? (
                     <div className="text-foreground font-stack-sans-notch text-sm mt-2">
-                      {user.username}
+                      {user.display_name || user.username}
                     </div>
                   ) : (
                     <div className="text-foreground/60 font-stack-sans-notch text-sm mt-2">

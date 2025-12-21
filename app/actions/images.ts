@@ -10,7 +10,7 @@ export async function getImages() {
 
     const { data, error } = await supabase
       .from('images')
-      .select('id, url, created_at, user_id, users(username)')
+      .select('id, url, created_at, user_id, users(username, display_name)')
       .order('created_at', { ascending: false })
 
     if (error) {

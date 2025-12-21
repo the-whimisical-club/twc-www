@@ -147,6 +147,7 @@ export async function approveUsers(emails: string[]): Promise<{ success: boolean
       auth_user_id: string
       email: string
       username: string
+      display_name: string
     }> = []
 
     for (const email of emails) {
@@ -157,6 +158,7 @@ export async function approveUsers(emails: string[]): Promise<{ success: boolean
           auth_user_id: authUser.id,
           email,
           username,
+          display_name: username, // Set display_name to username initially
         })
       }
     }
