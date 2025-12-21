@@ -25,7 +25,7 @@
 
 @layer utilities {
   .text-heading {
-    @apply text-foreground text-8xl;
+    @apply text-foreground text-4xl md:text-6xl lg:text-8xl;
     font-family: 'dark-london', 'Dark London', system-ui, sans-serif;
   }
   

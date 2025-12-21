@@ -185,7 +185,7 @@ export default function IntroText({ texts }: IntroTextProps) {
   }, [shouldScroll]);
 
   return (
-    <div className="relative">
+    <div className="relative text-center">
       {!hasClicked && (
         <div className="text-heading font-dashing text-foreground opacity-20">
           click to start

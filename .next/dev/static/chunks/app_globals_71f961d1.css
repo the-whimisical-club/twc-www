@@ -364,6 +364,10 @@
     margin: calc(var(--spacing) * 0);
   }
 
+  .m-8 {
+    margin: calc(var(--spacing) * 8);
+  }
+
   .mx-auto {
     margin-inline: auto;
   }
@@ -473,10 +477,6 @@
     animation: var(--animate-spin);
   }
 
-  .cursor-pointer {
-    cursor: pointer;
-  }
-
   .grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
@@ -584,8 +584,28 @@
     padding: calc(var(--spacing) * 3);
   }
 
+  .p-4 {
+    padding: calc(var(--spacing) * 4);
+  }
+
   .p-8 {
     padding: calc(var(--spacing) * 8);
+  }
+
+  .p-10 {
+    padding: calc(var(--spacing) * 10);
+  }
+
+  .p-12 {
+    padding: calc(var(--spacing) * 12);
+  }
+
+  .p-14 {
+    padding: calc(var(--spacing) * 14);
+  }
+
+  .p-16 {
+    padding: calc(var(--spacing) * 16);
   }
 
   .p-25 {
@@ -596,8 +616,20 @@
     padding-inline: calc(var(--spacing) * 4);
   }
 
+  .px-\[10\%\] {
+    padding-inline: 10%;
+  }
+
   .py-2 {
     padding-block: calc(var(--spacing) * 2);
+  }
+
+  .pb-8 {
+    padding-bottom: calc(var(--spacing) * 8);
+  }
+
+  .pb-16 {
+    padding-bottom: calc(var(--spacing) * 16);
   }
 
   .text-center {
@@ -741,6 +773,32 @@
     }
   }
 
+  @media (min-width: 48rem) {
+    .md\:p-25 {
+      padding: calc(var(--spacing) * 25);
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .md\:px-0 {
+      padding-inline: calc(var(--spacing) * 0);
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .md\:text-4xl {
+      font-size: var(--text-4xl);
+      line-height: var(--tw-leading, var(--text-4xl--line-height));
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .md\:text-6xl {
+      font-size: var(--text-6xl);
+      line-height: var(--tw-leading, var(--text-6xl--line-height));
+    }
+  }
+
   @media (min-width: 64rem) {
     .lg\:grid-cols-3 {
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -748,9 +806,26 @@
   }
 
   .text-heading {
-    font-size: var(--text-8xl);
-    line-height: var(--tw-leading, var(--text-8xl--line-height));
+    font-size: var(--text-4xl);
+    line-height: var(--tw-leading, var(--text-4xl--line-height));
     color: var(--color-foreground);
+  }
+
+  @media (min-width: 48rem) {
+    .text-heading {
+      font-size: var(--text-6xl);
+      line-height: var(--tw-leading, var(--text-6xl--line-height));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .text-heading {
+      font-size: var(--text-8xl);
+      line-height: var(--tw-leading, var(--text-8xl--line-height));
+    }
+  }
+
+  .text-heading {
     font-family: dark-london, Dark London, system-ui, sans-serif;
   }
 
