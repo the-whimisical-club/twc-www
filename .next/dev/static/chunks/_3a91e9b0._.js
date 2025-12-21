@@ -27,19 +27,9 @@ function ScrollToTop() {
     }["ScrollToTop.useEffect"], [
         pathname
     ]);
-    // Also scroll on initial mount (handles reloads)
-    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
-        "ScrollToTop.useEffect": ()=>{
-            window.scrollTo({
-                top: 0,
-                left: 0,
-                behavior: "instant"
-            });
-        }
-    }["ScrollToTop.useEffect"], []);
     return null;
 }
-_s(ScrollToTop, "tjXKfJWuFDa0epp0CJaCeazyqhM=", false, function() {
+_s(ScrollToTop, "V/ldUoOTYUs0Cb2F6bbxKSn7KxI=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePathname"]
     ];

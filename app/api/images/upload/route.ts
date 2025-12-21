@@ -41,8 +41,14 @@ export async function POST(request: Request) {
     })
 
     if (!response.ok) {
-      const errorData = (await response.json().catch(() => ({ error: 'Upload failed' }))) as { error?: string }
-      return NextResponse.json({ error: errorData.error || 'Failed to upload image' }, { status: response.status })
+      let errorMessage = 'Failed to upload image'
+      try {
+        const errorData = await response.json() as { error?: string }
+        errorMessage = errorData.error || errorMessage
+      } catch {
+        // Use default errorMessage
+      }
+      return NextResponse.json({ error: errorMessage }, { status: response.status })
     }
 
     // Worker returns JSON with url and filename

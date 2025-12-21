@@ -11,11 +11,6 @@ export default function ScrollToTop() {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [pathname]);
 
-  // Also scroll on initial mount (handles reloads)
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-  }, []);
-
   return null;
 }
 

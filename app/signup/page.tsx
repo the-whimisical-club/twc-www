@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import SignupForm from './signup-form'
+import AuthForm from '@/app/components/auth-form'
 
 export default async function SignupPage() {
   const cookieStore = cookies()
@@ -17,5 +17,5 @@ export default async function SignupPage() {
     redirect('/home')
   }
 
-  return <SignupForm />
+  return <AuthForm mode="signup" />
 }

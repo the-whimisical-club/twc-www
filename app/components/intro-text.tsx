@@ -23,7 +23,8 @@ export default function IntroText({ texts }: IntroTextProps) {
     if (!currentText) return 50;
     
     // Find first word boundary (first space)
-    const firstSpaceIndex = currentText.indexOf(' ') !== -1 ? currentText.indexOf(' ') : textLength;
+    const spaceIndex = currentText.indexOf(' ');
+    const firstSpaceIndex = spaceIndex !== -1 ? spaceIndex : textLength;
     
     // If we're in the first word, use slower speed with easing
     if (charIndex < firstSpaceIndex) {
@@ -40,10 +41,6 @@ export default function IntroText({ texts }: IntroTextProps) {
   // Handle click to start
   const handleClickToStart = useCallback(() => {
     setHasClicked(true);
-    // Initialize audio context on click
-    if (typeof window !== 'undefined' && 'AudioContext' in window) {
-      // Audio will be initialized when first sound plays
-    }
   }, []);
 
   // Listen for clicks anywhere on the page
@@ -186,16 +183,13 @@ export default function IntroText({ texts }: IntroTextProps) {
 
   return (
     <div className="relative text-center">
-      {!hasClicked && (
-        <div className="text-heading font-dashing text-foreground opacity-20">
-          click to start
-        </div>
-      )}
-      {hasClicked && (
-        <div className="text-heading">
-          {displayedText}
-        </div>
-      )}
+      <div className="text-heading">
+        {!hasClicked ? (
+          <span className="font-dashing text-foreground opacity-20">click to start</span>
+        ) : (
+          displayedText
+        )}
+      </div>
     </div>
   );
 }

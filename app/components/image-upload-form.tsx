@@ -60,27 +60,17 @@ function generateFilename(originalFile: File, email: string): string {
   // Use crypto if available for better randomness, otherwise fallback to Math.random
   const generateRandomSequence = (): string => {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    const charsArray = chars.split('')
     let result = ''
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-      // Use crypto for better randomness
-      const array = new Uint32Array(10)
-      crypto.getRandomValues(array)
-      for (let i = 0; i < array.length; i++) {
-        const value = array[i]
-        if (value !== undefined) {
-          const index = value % charsArray.length
-          const char = charsArray[index]
-          if (char) result += char
-        }
+    const getRandomIndex = (max: number): number => {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const array = new Uint32Array(1)
+        crypto.getRandomValues(array)
+        return array[0]! % max
       }
-    } else {
-      // Fallback to Math.random
-      for (let i = 0; i < 10; i++) {
-        const index = Math.floor(Math.random() * charsArray.length)
-        const char = charsArray[index]
-        if (char) result += char
-      }
+      return Math.floor(Math.random() * max)
+    }
+    for (let i = 0; i < 10; i++) {
+      result += chars[getRandomIndex(chars.length)]
     }
     return result
   }
@@ -123,11 +113,14 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       return
     }
 
-    setUploading(true)
-    setProgress(0)
-    setSuccess(false)
-    setMessage(null)
-    notifyStateChange({ uploading: true, progress: 0, success: false })
+    const resetState = () => {
+      setUploading(true)
+      setProgress(0)
+      setSuccess(false)
+      setMessage(null)
+      notifyStateChange({ uploading: true, progress: 0, success: false })
+    }
+    resetState()
 
     try {
       // Convert to WebP

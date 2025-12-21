@@ -32,9 +32,7 @@ class TypewriterSound {
       this.initializeAudioContext();
     }
     // Resume audio context if suspended (required after user interaction)
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      this.audioContext.resume();
-    }
+    this.audioContext?.resume();
   }
 
   /**

@@ -4,7 +4,11 @@ import { useState } from 'react'
 import { sendOTP } from '../actions/auth'
 import { useRouter } from 'next/navigation'
 
-export default function SignupForm() {
+interface AuthFormProps {
+  mode: 'login' | 'signup'
+}
+
+export default function AuthForm({ mode }: AuthFormProps) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,16 +37,22 @@ export default function SignupForm() {
         setLoading(false)
       }
     } catch (err) {
-      console.error('Signup error:', err)
+      console.error(`${mode} error:`, err)
       setError(err instanceof Error ? err.message : 'Failed to send verification code. Please try again.')
       setLoading(false)
     }
   }
 
+  const title = mode === 'login' ? 'LOG IN' : 'SIGN UP'
+  const linkText = mode === 'login' 
+    ? "Don't have an account? Sign up"
+    : 'Already have an account? Log in'
+  const linkHref = mode === 'login' ? '/signup' : '/login'
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-background">
       <div className="w-full max-w-md p-8">
-        <h1 className="text-4xl font-dark-london mb-8 text-center text-foreground">SIGN UP</h1>
+        <h1 className="text-4xl font-dark-london mb-8 text-center text-foreground">{title}</h1>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -104,10 +114,10 @@ export default function SignupForm() {
 
         <div className="mt-4 text-center">
           <a
-            href="/login"
+            href={linkHref}
             className="text-sm text-foreground-50 hover:text-foreground underline"
           >
-            Already have an account? Log in
+            {linkText}
           </a>
         </div>
       </div>

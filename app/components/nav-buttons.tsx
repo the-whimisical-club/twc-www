@@ -13,18 +13,6 @@ export default function NavButtons({ username }: { username?: string }) {
   const isHomePage = pathname === '/home'
   const [uploadState, setUploadState] = useState({ uploading: false, progress: 0, success: false })
 
-  useEffect(() => {
-    // Poll for state changes
-    const interval = setInterval(() => {
-      if (uploadFormRef.current) {
-        const state = uploadFormRef.current.getUploadState()
-        setUploadState(state)
-      }
-    }, 50) // Check every 50ms for smooth progress
-
-    return () => clearInterval(interval)
-  }, [])
-
   const handleUploadClick = (e: React.MouseEvent) => {
     if (isHomePage) {
       e.preventDefault()

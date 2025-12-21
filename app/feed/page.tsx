@@ -1,22 +1,9 @@
-import { createClient } from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { requireAuth } from '@/app/utils/auth'
 import { getImages } from '@/app/actions/images'
 import NavButtons from '@/app/components/nav-buttons'
 
 export default async function FeedPage() {
-  const cookieStore = cookies()
-  const supabase = await createClient(cookieStore)
-
-  // Check if user is authenticated
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  // Redirect to signup if not authenticated
-  if (!user) {
-    redirect('/signup')
-  }
+  const { user } = await requireAuth()
 
   // Fetch images
   const result = await getImages()
