@@ -78,7 +78,23 @@ export async function verifyOTP(formData: FormData) {
       console.error('Error adding email to waiting_approval:', insertError)
     }
 
-    redirect('/home')
+    // Check if user is approved (exists in users table)
+    const { data: userData } = await supabase.auth.getUser()
+    if (userData?.user?.id) {
+      const { data: approvedUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', userData.user.id)
+        .single()
+
+      if (approvedUser) {
+        redirect('/home')
+      } else {
+        redirect('/waitlist')
+      }
+    } else {
+      redirect('/waitlist')
+    }
   }
 
   return { error: 'Verification failed' }

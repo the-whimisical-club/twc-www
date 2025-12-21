@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { ensureUser, isUserApproved } from '@/app/utils/users'
 
 const WORKER_URL = process.env.CLOUDFLARE_WORKER_URL
 
@@ -20,6 +21,12 @@ export async function POST(request: Request) {
 
     if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check if user is approved (exists in users table)
+    const approved = await isUserApproved(user.id)
+    if (!approved) {
+      return NextResponse.json({ error: 'User not approved' }, { status: 403 })
     }
 
     const formData = await request.formData()
@@ -55,10 +62,17 @@ export async function POST(request: Request) {
     const workerResponse = (await response.json()) as { url: string; filename: string }
     const publicUrl = workerResponse.url || `${WORKER_URL}/${filename}`
 
-    // Save URL to database
+    // Ensure user exists in users table and get their id
+    const userRecord = await ensureUser(user.id, user.email)
+    
+    if (!userRecord) {
+      return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 })
+    }
+
+    // Save URL to database with user_id
     const { error: dbError } = await supabase
       .from('images')
-      .insert({ url: publicUrl })
+      .insert({ url: publicUrl, user_id: userRecord.id })
 
     if (dbError) {
       console.error('Database error:', dbError)
