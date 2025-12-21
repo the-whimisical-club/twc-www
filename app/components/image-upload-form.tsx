@@ -43,24 +43,52 @@ async function convertToWebP(file: File): Promise<Blob> {
   })
 }
 
-// Generate filename: username/dd_mm_yyyy_username_originalext.webp
+// Generate filename: dd-mm-yyyy-user-10digitrandom.webp
 function generateFilename(originalFile: File, email: string): string {
   const now = new Date()
   const dd = String(now.getDate()).padStart(2, '0')
   const mm = String(now.getMonth() + 1).padStart(2, '0')
   const yyyy = now.getFullYear()
   
-  // Get original extension
-  const originalExt = originalFile.name.split('.').pop()?.toLowerCase() || 'jpg'
-  
   // Extract username from email (part before @)
   const username = email.split('@')[0] || email
   
-  // Sanitize username (remove special chars, keep alphanumeric and underscore)
-  const sanitizedUsername = username.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
+  // Sanitize username (remove special chars, keep alphanumeric, replace with dash)
+  const sanitizedUsername = username.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
   
-  // Return with username as folder prefix: username/dd_mm_yyyy_username_originalext.webp
-  return `${sanitizedUsername}/${dd}_${mm}_${yyyy}_${sanitizedUsername}_${originalExt}.webp`
+  // Generate 10-character alphanumeric random sequence
+  // Use crypto if available for better randomness, otherwise fallback to Math.random
+  const generateRandomSequence = (): string => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    const charsArray = chars.split('')
+    let result = ''
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      // Use crypto for better randomness
+      const array = new Uint32Array(10)
+      crypto.getRandomValues(array)
+      for (let i = 0; i < array.length; i++) {
+        const value = array[i]
+        if (value !== undefined) {
+          const index = value % charsArray.length
+          const char = charsArray[index]
+          if (char) result += char
+        }
+      }
+    } else {
+      // Fallback to Math.random
+      for (let i = 0; i < 10; i++) {
+        const index = Math.floor(Math.random() * charsArray.length)
+        const char = charsArray[index]
+        if (char) result += char
+      }
+    }
+    return result
+  }
+  
+  const randomSequence = generateRandomSequence()
+  
+  // Return format: dd-mm-yyyy-user-10digitrandom.webp
+  return `${dd}-${mm}-${yyyy}-${sanitizedUsername}-${randomSequence}.webp`
 }
 
 interface ImageUploadFormProps {
