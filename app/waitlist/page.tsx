@@ -1,6 +1,23 @@
 import Navbar from '@/app/components/navbar'
+import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { isUserApproved } from '@/app/utils/users'
 
 export default async function WaitlistPage() {
+  const cookieStore = cookies()
+  const supabase = await createClient(cookieStore)
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  // If user is logged in and approved, redirect to home
+  if (user) {
+    const approved = await isUserApproved(user.id)
+    if (approved) {
+      redirect('/home')
+    }
+  }
+
   return (
     <div className="bg-background min-h-screen flex flex-col items-center justify-center">
       <Navbar />
