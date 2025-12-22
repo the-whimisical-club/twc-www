@@ -8,36 +8,156 @@ export interface ImageUploadFormHandle {
   getUploadState: () => { uploading: boolean; progress: number; success: boolean }
 }
 
-// Convert image to WebP format
+// Handle EXIF orientation for iOS images
+function getOrientation(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const view = new DataView(e.target?.result as ArrayBuffer)
+      if (view.getUint16(0, false) !== 0xFFD8) {
+        resolve(-2) // Not a JPEG
+        return
+      }
+      const length = view.byteLength
+      let offset = 2
+      while (offset < length) {
+        if (view.getUint16(offset, false) === 0xFFE1) {
+          const marker = view.getUint16(offset + 2, false)
+          if (marker === 0xE1) {
+            if (view.getUint32(offset + 4, false) !== 0x45786966) {
+              resolve(-1)
+              return
+            }
+            const little = view.getUint16(offset + 10, false) === 0x4949
+            const count = little ? view.getUint16(offset + 18, false) : view.getUint16(offset + 18, false)
+            for (let i = 0; i < count; i++) {
+              const entryOffset = offset + 20 + i * 12
+              const tag = little ? view.getUint16(entryOffset, true) : view.getUint16(entryOffset, false)
+              if (tag === 0x0112) {
+                const orientation = little ? view.getUint16(entryOffset + 8, true) : view.getUint16(entryOffset + 8, false)
+                resolve(orientation)
+                return
+              }
+            }
+          }
+        }
+        offset += 2 + (view.getUint16(offset, false) & 0xFFFF)
+      }
+      resolve(-1)
+    }
+    reader.onerror = () => resolve(-1)
+    const blob = file.slice(0, 64 * 1024) // Read first 64KB
+    reader.readAsArrayBuffer(blob)
+  })
+}
+
+// Apply EXIF orientation to canvas
+function applyOrientation(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, orientation: number) {
+  const width = canvas.width
+  const height = canvas.height
+
+  if (orientation > 4) {
+    canvas.width = height
+    canvas.height = width
+  }
+
+  switch (orientation) {
+    case 2:
+      ctx.transform(-1, 0, 0, 1, width, 0)
+      break
+    case 3:
+      ctx.transform(-1, 0, 0, -1, width, height)
+      break
+    case 4:
+      ctx.transform(1, 0, 0, -1, 0, height)
+      break
+    case 5:
+      ctx.transform(0, 1, 1, 0, 0, 0)
+      break
+    case 6:
+      ctx.transform(0, 1, -1, 0, height, 0)
+      break
+    case 7:
+      ctx.transform(0, -1, -1, 0, height, width)
+      break
+    case 8:
+      ctx.transform(0, -1, 1, 0, 0, width)
+      break
+  }
+}
+
+// Convert image to WebP format with iOS/HEIC support
 async function convertToWebP(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'))
-          return
-        }
-        ctx.drawImage(img, 0, 0)
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              resolve(blob)
-            } else {
-              reject(new Error('Failed to convert image to WebP'))
+    reader.onload = async (e) => {
+      try {
+        const img = new Image()
+        
+        img.onload = async () => {
+          try {
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+            if (!ctx) {
+              reject(new Error('Failed to get canvas context'))
+              return
             }
-          },
-          'image/webp',
-          0.9 // Quality (0-1)
-        )
+
+            // Get EXIF orientation for iOS images
+            const orientation = await getOrientation(file)
+            
+            // Set canvas dimensions
+            if (orientation > 4) {
+              canvas.width = img.height
+              canvas.height = img.width
+            } else {
+              canvas.width = img.width
+              canvas.height = img.height
+            }
+
+            // Apply orientation transformation
+            ctx.save()
+            applyOrientation(canvas, ctx, orientation)
+            ctx.drawImage(img, 0, 0)
+            ctx.restore()
+
+            // Try WebP conversion with fallback
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  resolve(blob)
+                } else {
+                  // Fallback: if WebP fails, try JPEG (iOS Safari sometimes fails silently)
+                  canvas.toBlob(
+                    (jpegBlob) => {
+                      if (jpegBlob) {
+                        resolve(jpegBlob)
+                      } else {
+                        reject(new Error('Failed to convert image. Please try a different image.'))
+                      }
+                    },
+                    'image/jpeg',
+                    0.9
+                  )
+                }
+              },
+              'image/webp',
+              0.9 // Quality (0-1)
+            )
+          } catch (err) {
+            reject(new Error(`Image processing failed: ${err instanceof Error ? err.message : 'Unknown error'}`))
+          }
+        }
+        
+        img.onerror = () => {
+          // If image fails to load, try using the original file as fallback
+          reject(new Error('Failed to load image. Please try a different image format.'))
+        }
+        
+        img.src = e.target?.result as string
+      } catch (err) {
+        reject(new Error(`Failed to process image: ${err instanceof Error ? err.message : 'Unknown error'}`))
       }
-      img.onerror = () => reject(new Error('Failed to load image'))
-      img.src = e.target?.result as string
     }
     reader.onerror = () => reject(new Error('Failed to read file'))
     reader.readAsDataURL(file)
@@ -218,6 +338,7 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         id="image"
         name="image"
         accept="image/*"
+        capture="environment"
         onChange={handleFileChange}
         disabled={uploading}
         className="hidden"

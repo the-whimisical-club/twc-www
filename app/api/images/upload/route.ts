@@ -37,11 +37,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'File is required' }, { status: 400 })
     }
 
-    // Generate filename with folder structure: username/dd-mm-yyyy-random.webp
+    // Detect file type (handle JPEG fallback from iOS)
+    const fileType = file.type || 'image/webp'
+    const isJPEG = fileType.includes('jpeg') || fileType.includes('jpg')
+    const extension = isJPEG ? '.jpg' : '.webp'
+    const contentType = isJPEG ? 'image/jpeg' : 'image/webp'
+
+    // Generate filename with folder structure: username/dd-mm-yyyy-random.webp or .jpg
     let filename: string
     if (providedFilename && providedFilename.includes('/')) {
       // Use provided filename if it already has folder structure
-      filename = providedFilename
+      // Ensure extension matches file type
+      filename = providedFilename.replace(/\.(webp|jpg|jpeg)$/i, extension)
     } else {
       // Generate filename server-side with folder structure
       const now = new Date()
@@ -62,8 +69,8 @@ export async function POST(request: Request) {
         randomSequence += chars[Math.floor(Math.random() * chars.length)]
       }
       
-      // Format: username/dd-mm-yyyy-random.webp
-      filename = `${sanitizedUsername}/${dd}-${mm}-${yyyy}-${randomSequence}.webp`
+      // Format: username/dd-mm-yyyy-random.webp or .jpg
+      filename = `${sanitizedUsername}/${dd}-${mm}-${yyyy}-${randomSequence}${extension}`
     }
 
     // Upload to Cloudflare Worker with filename including folder structure
@@ -71,7 +78,7 @@ export async function POST(request: Request) {
     const response = await fetch(`${WORKER_URL}/${filename}`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'image/webp',
+        'Content-Type': contentType,
       },
       body: arrayBuffer,
     })
