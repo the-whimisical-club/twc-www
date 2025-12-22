@@ -143,10 +143,18 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         fileInputRef.current.value = ''
       }
 
-      // Redirect to feed after showing success tick (1 second)
+      // Reset button to normal after 1 second
+      setTimeout(() => {
+        setUploading(false)
+        setProgress(0)
+        setSuccess(false)
+        notifyStateChange({ uploading: false, progress: 0, success: false })
+      }, 1000)
+
+      // Redirect to feed after showing success tick and reset (1.5 seconds total)
       setTimeout(() => {
         router.push('/feed')
-      }, 1000)
+      }, 1500)
     } catch (err) {
       setUploading(false)
       setProgress(0)
