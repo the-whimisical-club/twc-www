@@ -360,7 +360,6 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         id="image"
         name="image"
         accept="image/*"
-        capture="environment"
         onChange={handleFileChange}
         disabled={uploading}
         className="hidden"
