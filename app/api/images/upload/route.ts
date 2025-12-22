@@ -20,13 +20,21 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (!user || !user.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ 
+        error: 'Unauthorized', 
+        code: 'UPLOAD_001',
+        message: 'User authentication required'
+      }, { status: 401 })
     }
 
     // Check if user is approved (exists in users table)
     const approved = await isUserApproved(user.id)
     if (!approved) {
-      return NextResponse.json({ error: 'User not approved' }, { status: 403 })
+      return NextResponse.json({ 
+        error: 'User not approved', 
+        code: 'UPLOAD_002',
+        message: 'User account is pending approval'
+      }, { status: 403 })
     }
 
     const formData = await request.formData()
@@ -34,7 +42,11 @@ export async function POST(request: Request) {
     const providedFilename = formData.get('filename') as string | null
 
     if (!file) {
-      return NextResponse.json({ error: 'File is required' }, { status: 400 })
+      return NextResponse.json({ 
+        error: 'File is required', 
+        code: 'UPLOAD_003',
+        message: 'No file provided in request'
+      }, { status: 400 })
     }
 
     // Detect file type (handle JPEG fallback from iOS)
@@ -85,13 +97,19 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       let errorMessage = 'Failed to upload image'
+      let errorCode = 'UPLOAD_004'
       try {
-        const errorData = await response.json() as { error?: string }
+        const errorData = await response.json() as { error?: string; code?: string }
         errorMessage = errorData.error || errorMessage
+        errorCode = errorData.code || errorCode
       } catch {
         // Use default errorMessage
       }
-      return NextResponse.json({ error: errorMessage }, { status: response.status })
+      return NextResponse.json({ 
+        error: errorMessage,
+        code: errorCode,
+        message: 'Cloudflare Worker upload failed'
+      }, { status: response.status })
     }
 
     // Worker returns JSON with url and filename
@@ -102,7 +120,11 @@ export async function POST(request: Request) {
     const userRecord = await ensureUser(user.id, user.email)
     
     if (!userRecord) {
-      return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 })
+      return NextResponse.json({ 
+        error: 'Failed to create user record', 
+        code: 'UPLOAD_005',
+        message: 'Could not create or retrieve user record in database'
+      }, { status: 500 })
     }
 
     // Save URL to database with user_id
@@ -112,14 +134,23 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error('Database error:', dbError)
-      return NextResponse.json({ error: 'Failed to save image URL' }, { status: 500 })
+      return NextResponse.json({ 
+        error: 'Failed to save image URL', 
+        code: 'UPLOAD_006',
+        message: 'Database insert failed',
+        details: dbError.message
+      }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, url: publicUrl, filename })
   } catch (err) {
     console.error('Upload error:', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to upload image' },
+      { 
+        error: err instanceof Error ? err.message : 'Failed to upload image',
+        code: 'UPLOAD_007',
+        message: 'Unexpected server error occurred'
+      },
       { status: 500 }
     )
   }

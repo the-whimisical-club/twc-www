@@ -1,0 +1,239 @@
+# Image Upload Error Codes
+
+This document provides a reference for all error codes that may appear during image uploads. Error codes help diagnose issues, especially on mobile devices like iPhones.
+
+## Server-Side Error Codes (UPLOAD_XXX)
+
+### UPLOAD_001 - Unauthorized
+**Status:** 401  
+**Message:** User authentication required  
+**Description:** The user is not authenticated or the session is invalid.  
+**Solution:** 
+- Ensure you are logged in
+- Try logging out and logging back in
+- Clear browser cookies and try again
+
+### UPLOAD_002 - User Not Approved
+**Status:** 403  
+**Message:** User account is pending approval  
+**Description:** The user account exists but has not been approved by an admin yet.  
+**Solution:** 
+- Wait for admin approval
+- Contact an admin if you believe you should have access
+- Check `/waitlist` page for approval status
+
+### UPLOAD_003 - File Required
+**Status:** 400  
+**Message:** No file provided in request  
+**Description:** The upload request was sent without a file attachment.  
+**Solution:** 
+- Ensure you selected a file before uploading
+- Try selecting the file again
+- Refresh the page and try again
+
+### UPLOAD_004 - Worker Upload Failed
+**Status:** 400-500  
+**Message:** Cloudflare Worker upload failed  
+**Description:** The image failed to upload to Cloudflare R2 storage. This can happen due to:
+- File size exceeding 10MB limit
+- Invalid file format
+- Network connectivity issues
+- Cloudflare Worker errors
+
+**Solution:**
+- Check file size (must be under 10MB)
+- Ensure file is a valid image format (JPEG, PNG, GIF, WebP)
+- Check your internet connection
+- Try again after a few moments
+- If problem persists, try a different image
+
+### UPLOAD_005 - User Record Creation Failed
+**Status:** 500  
+**Message:** Could not create or retrieve user record in database  
+**Description:** Failed to create or retrieve the user record in the database.  
+**Solution:**
+- Try again after a few moments
+- Contact support if the issue persists
+- Check if your account exists in the system
+
+### UPLOAD_006 - Database Insert Failed
+**Status:** 500  
+**Message:** Database insert failed  
+**Description:** The image was uploaded successfully but failed to save the URL to the database.  
+**Solution:**
+- The image may have been uploaded but not saved
+- Try uploading again
+- Contact support if the issue persists
+
+### UPLOAD_007 - Unexpected Server Error
+**Status:** 500  
+**Message:** Unexpected server error occurred  
+**Description:** An unexpected error occurred on the server during upload processing.  
+**Solution:**
+- Try again after a few moments
+- Check if the issue persists with different images
+- Contact support with the error code
+
+## Client-Side Error Codes (CLIENT_XXX)
+
+### CLIENT_001 - Image Conversion Failed
+**Message:** Failed to convert image. Please try a different image.  
+**Description:** Failed to convert the image to WebP format. This commonly occurs on iOS devices when:
+- The image format is not supported
+- HEIC images fail to convert
+- Canvas/WebP conversion is not supported by the browser
+
+**Solution:**
+- Try a different image
+- On iPhone: Use a JPEG or PNG image instead of HEIC
+- Convert the image to JPEG/PNG before uploading
+- Update your browser to the latest version
+
+### CLIENT_002 - Image Processing Failed
+**Message:** Image processing failed  
+**Description:** An error occurred while processing the image (e.g., during EXIF orientation correction or canvas operations).  
+**Solution:**
+- Try a different image
+- Ensure the image is not corrupted
+- Try resizing the image before uploading
+- On iPhone: Convert HEIC to JPEG first
+
+### CLIENT_003 - Image Load Failed
+**Message:** Failed to load image. Please try a different image format.  
+**Description:** The browser failed to load the selected image file. This can happen with:
+- Corrupted image files
+- Unsupported formats
+- Very large images causing memory issues
+
+**Solution:**
+- Try a different image
+- Ensure the image file is not corrupted
+- Resize very large images before uploading
+- Convert to a standard format (JPEG, PNG)
+
+### CLIENT_004 - File Read Failed
+**Message:** Failed to read file  
+**Description:** The browser failed to read the selected file from disk.  
+**Solution:**
+- Ensure you have permission to access the file
+- Try selecting the file again
+- Check if the file is locked by another application
+- Try a different file
+
+### CLIENT_005 - Response Parse Failed
+**Message:** Failed to parse response  
+**Description:** The server response could not be parsed as JSON.  
+**Solution:**
+- Check your internet connection
+- Try again after a few moments
+- Refresh the page and try again
+
+### CLIENT_006 - Upload Request Failed
+**Message:** Upload failed  
+**Description:** The upload request failed. This can be due to:
+- Network connectivity issues
+- Server errors
+- Request timeout
+
+**Solution:**
+- Check your internet connection
+- Try again after a few moments
+- Ensure you're not on a restricted network
+- Try using a different network connection
+
+### CLIENT_007 - Network Error
+**Message:** Network error  
+**Description:** A network error occurred while sending the upload request.  
+**Solution:**
+- Check your internet connection
+- Ensure you're connected to WiFi or cellular data
+- Try again after a few moments
+- Check if other websites are accessible
+
+## Worker Error Codes (WORKER_XXX)
+
+### WORKER_001 - Invalid Content Type
+**Status:** 400  
+**Message:** File type not supported  
+**Description:** The uploaded file is not an allowed image format.  
+**Solution:**
+- Ensure file is JPEG, PNG, GIF, WebP, or SVG
+- Convert the file to a supported format
+- Check file extension matches file type
+
+### WORKER_002 - File Too Large
+**Status:** 400  
+**Message:** File size exceeds maximum limit  
+**Description:** The file exceeds the 10MB size limit.  
+**Solution:**
+- Compress or resize the image
+- Use image editing software to reduce file size
+- Maximum allowed size: 10MB
+
+### WORKER_003 - R2 Storage Upload Failed
+**Status:** 500  
+**Message:** R2 storage upload failed  
+**Description:** Failed to upload the image to Cloudflare R2 storage.  
+**Solution:**
+- Try again after a few moments
+- Check your internet connection
+- Contact support if the issue persists
+
+## Common iPhone-Specific Issues
+
+### HEIC Format Issues
+**Symptoms:** CLIENT_001, CLIENT_002, or CLIENT_003 errors  
+**Cause:** iPhones default to HEIC format which may not convert properly  
+**Solution:**
+- Change iPhone camera settings to use JPEG format:
+  - Settings → Camera → Formats → Most Compatible
+- Or convert HEIC images before uploading
+
+### Large Image Files
+**Symptoms:** UPLOAD_004 errors, slow uploads, memory issues  
+**Cause:** iPhone photos are often very high resolution (12MP+)  
+**Solution:**
+- Resize images before uploading
+- Use a photo editing app to reduce resolution
+- Ensure file size is under 10MB
+
+### Orientation Issues
+**Symptoms:** Images appear rotated incorrectly  
+**Cause:** EXIF orientation data not handled properly  
+**Solution:**
+- The app should handle this automatically
+- If images are still rotated, try rotating them manually before uploading
+
+### Safari-Specific Issues
+**Symptoms:** Various CLIENT_XXX errors  
+**Cause:** Safari on iOS has limitations with WebP and canvas operations  
+**Solution:**
+- Update iOS to the latest version
+- Try using Chrome or Firefox on iOS
+- The app includes fallbacks for Safari limitations
+
+## Troubleshooting Steps
+
+1. **Check Error Code:** Note the specific error code displayed
+2. **Review This Document:** Look up the error code above
+3. **Try Basic Solutions:** 
+   - Refresh the page
+   - Try a different image
+   - Check internet connection
+4. **iPhone-Specific:** 
+   - Convert HEIC to JPEG
+   - Resize large images
+   - Update iOS
+5. **Contact Support:** If issues persist, provide:
+   - Error code
+   - Device/browser information
+   - Steps to reproduce
+
+## Additional Notes
+
+- All images are converted to WebP format for storage (with JPEG fallback)
+- Maximum file size: 10MB
+- Supported formats: JPEG, PNG, GIF, WebP, SVG
+- Images are organized in folders by username
+- Upload progress is shown in the upload button
+

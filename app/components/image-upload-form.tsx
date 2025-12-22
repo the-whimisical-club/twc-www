@@ -133,7 +133,9 @@ async function convertToWebP(file: File): Promise<Blob> {
                       if (jpegBlob) {
                         resolve(jpegBlob)
                       } else {
-                        reject(new Error('Failed to convert image. Please try a different image.'))
+                        const error = new Error('Failed to convert image. Please try a different image.') as Error & { code?: string }
+                        error.code = 'CLIENT_001'
+                        reject(error)
                       }
                     },
                     'image/jpeg',
@@ -145,13 +147,17 @@ async function convertToWebP(file: File): Promise<Blob> {
               0.9 // Quality (0-1)
             )
           } catch (err) {
-            reject(new Error(`Image processing failed: ${err instanceof Error ? err.message : 'Unknown error'}`))
+            const error = new Error(`Image processing failed: ${err instanceof Error ? err.message : 'Unknown error'}`) as Error & { code?: string }
+            error.code = 'CLIENT_002'
+            reject(error)
           }
         }
         
         img.onerror = () => {
           // If image fails to load, try using the original file as fallback
-          reject(new Error('Failed to load image. Please try a different image format.'))
+          const error = new Error('Failed to load image. Please try a different image format.') as Error & { code?: string }
+          error.code = 'CLIENT_003'
+          reject(error)
         }
         
         img.src = e.target?.result as string
@@ -159,8 +165,12 @@ async function convertToWebP(file: File): Promise<Blob> {
         reject(new Error(`Failed to process image: ${err instanceof Error ? err.message : 'Unknown error'}`))
       }
     }
-    reader.onerror = () => reject(new Error('Failed to read file'))
-    reader.readAsDataURL(file)
+      reader.onerror = () => {
+        const error = new Error('Failed to read file') as Error & { code?: string }
+        error.code = 'CLIENT_004'
+        reject(error)
+      }
+      reader.readAsDataURL(file)
   })
 }
 
@@ -212,7 +222,7 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [success, setSuccess] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string; code?: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -282,20 +292,29 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
               const data = JSON.parse(xhr.responseText) as { url: string; filename: string }
               resolve(data)
             } catch (err) {
-              reject(new Error('Failed to parse response'))
+              const error = new Error('Failed to parse response') as Error & { code?: string }
+              error.code = 'CLIENT_005'
+              reject(error)
             }
           } else {
             try {
-              const errorData = JSON.parse(xhr.responseText) as { error?: string }
-              reject(new Error(errorData.error || 'Upload failed'))
+              const errorData = JSON.parse(xhr.responseText) as { error?: string; code?: string; message?: string }
+              const error = new Error(errorData.error || 'Upload failed') as Error & { code?: string; message?: string }
+              error.code = errorData.code || 'CLIENT_006'
+              error.message = errorData.message || error.message
+              reject(error)
             } catch {
-              reject(new Error('Upload failed'))
+              const error = new Error('Upload failed') as Error & { code?: string }
+              error.code = 'CLIENT_006'
+              reject(error)
             }
           }
         })
 
         xhr.addEventListener('error', () => {
-          reject(new Error('Network error'))
+          const error = new Error('Network error') as Error & { code?: string }
+          error.code = 'CLIENT_007'
+          reject(error)
         })
 
         xhr.open('POST', '/api/images/upload')
@@ -323,9 +342,12 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       setProgress(0)
       setSuccess(false)
       notifyStateChange({ uploading: false, progress: 0, success: false })
+      const errorCode = (err as Error & { code?: string })?.code || 'UNKNOWN'
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload image'
       setMessage({ 
         type: 'error', 
-        text: err instanceof Error ? err.message : 'Failed to upload image' 
+        text: `${errorMessage} [${errorCode}]`,
+        code: errorCode
       })
     }
   }
@@ -345,13 +367,18 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       />
       {message && (
         <div
-          className={`fixed top-4 left-1/2 transform -translate-x-1/2 p-3 rounded z-50 ${
+          className={`fixed top-4 left-1/2 transform -translate-x-1/2 p-3 rounded z-50 max-w-md ${
             message.type === 'success'
               ? 'bg-green-500 text-white'
               : 'bg-red-500 text-white'
           }`}
         >
-          {message.text}
+          <div className="font-medium">{message.text}</div>
+          {message.code && message.type === 'error' && (
+            <div className="text-xs mt-1 opacity-90">
+              Error Code: {message.code} | See docs/error_codes.mdx for details
+            </div>
+          )}
         </div>
       )}
     </>

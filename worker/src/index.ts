@@ -112,7 +112,9 @@ export default {
       if (!ALLOWED_MIME_TYPES.includes(contentType)) {
         return new Response(
           JSON.stringify({ 
-            error: `Invalid content type. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}` 
+            error: `Invalid content type. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`,
+            code: 'WORKER_001',
+            message: 'File type not supported'
           }),
           { 
             status: 400,
@@ -167,7 +169,9 @@ export default {
         if (body.byteLength > MAX_FILE_SIZE) {
           return new Response(
             JSON.stringify({ 
-              error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB` 
+              error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+              code: 'WORKER_002',
+              message: 'File size exceeds maximum limit'
             }),
             { 
               status: 400,
@@ -205,7 +209,11 @@ export default {
       } catch (error) {
         console.error('Error uploading image:', error);
         return new Response(
-          JSON.stringify({ error: 'Failed to upload image' }),
+          JSON.stringify({ 
+            error: 'Failed to upload image',
+            code: 'WORKER_003',
+            message: 'R2 storage upload failed'
+          }),
           { 
             status: 500,
             headers: {
