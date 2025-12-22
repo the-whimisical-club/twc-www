@@ -66,7 +66,6 @@ export async function POST(request: Request) {
     }
 
     const file = formData.get('image') as File
-    const providedFilename = formData.get('filename') as string | null
 
     if (!file) {
       return NextResponse.json({ 
@@ -76,7 +75,7 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // Check file size before processing (100MB limit - will be compressed to WebP)
+    // Check file size before processing (100MB limit)
     const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ 
@@ -86,45 +85,39 @@ export async function POST(request: Request) {
       }, { status: 413 })
     }
 
-    // Detect file type (handle JPEG fallback from iOS)
-    const fileType = file.type || 'image/webp'
-    const isJPEG = fileType.includes('jpeg') || fileType.includes('jpg')
-    const extension = isJPEG ? '.jpg' : '.webp'
-    const contentType = isJPEG ? 'image/jpeg' : 'image/webp'
+    // All files should be JPEG now (client converts everything to JPEG)
+    const extension = '.jpg'
+    const contentType = 'image/jpeg'
 
-    // Generate filename with folder structure: username/dd-mm-yyyy-random.webp or .jpg
-    let filename: string
-    if (providedFilename && providedFilename.includes('/')) {
-      // Use provided filename if it already has folder structure
-      // Ensure extension matches file type
-      filename = providedFilename.replace(/\.(webp|jpg|jpeg)$/i, extension)
-    } else {
-      // Generate filename server-side with folder structure
-      const now = new Date()
-      const dd = String(now.getDate()).padStart(2, '0')
-      const mm = String(now.getMonth() + 1).padStart(2, '0')
-      const yyyy = now.getFullYear()
-      
-      // Extract username from email (part before @)
-      const username = user.email!.split('@')[0] || user.email!
-      
-      // Sanitize username (remove special chars, keep alphanumeric, replace with dash)
-      const sanitizedUsername = username.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-      
-      // Generate 10-character alphanumeric random sequence
-      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-      let randomSequence = ''
-      for (let i = 0; i < 10; i++) {
-        randomSequence += chars[Math.floor(Math.random() * chars.length)]
-      }
-      
-      // Format: username/dd-mm-yyyy-random.webp or .jpg
-      filename = `${sanitizedUsername}/${dd}-${mm}-${yyyy}-${randomSequence}${extension}`
+    // Generate filename server-side with folder structure
+    const now = new Date()
+    const dd = String(now.getDate()).padStart(2, '0')
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const yyyy = now.getFullYear()
+    
+    // Extract username from email (part before @)
+    const username = user.email!.split('@')[0] || user.email!
+    
+    // Sanitize username (remove special chars, keep alphanumeric, replace with dash)
+    const sanitizedUsername = username.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
+    
+    // Generate 10-character alphanumeric random sequence
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let randomSequence = ''
+    for (let i = 0; i < 10; i++) {
+      randomSequence += chars[Math.floor(Math.random() * chars.length)]
     }
+    
+    // Format: username/dd-mm-yyyy-random.jpg
+    const filename = `${sanitizedUsername}/${dd}-${mm}-${yyyy}-${randomSequence}${extension}`
 
     // Upload to Cloudflare Worker with filename including folder structure
+    // Encode each path segment separately to preserve folder structure
+    const encodedFilename = filename.split('/').map(segment => encodeURIComponent(segment)).join('/')
     const arrayBuffer = await file.arrayBuffer()
-    const response = await fetch(`${WORKER_URL}/${filename}`, {
+    
+    const workerUrl = `${WORKER_URL}/${encodedFilename}`
+    const response = await fetch(workerUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': contentType,
@@ -135,18 +128,35 @@ export async function POST(request: Request) {
     if (!response.ok) {
       let errorMessage = 'Failed to upload image'
       let errorCode = 'UPLOAD_004'
+      let errorDetails = ''
       try {
-        const errorData = await response.json() as { error?: string; code?: string }
+        const errorData = await response.json() as { error?: string; code?: string; message?: string }
         errorMessage = errorData.error || errorMessage
         errorCode = errorData.code || errorCode
+        errorDetails = errorData.message || ''
       } catch {
-        // Use default errorMessage
+        // If response isn't JSON, get text
+        try {
+          const text = await response.text()
+          errorDetails = text || `HTTP ${response.status}`
+        } catch {
+          errorDetails = `HTTP ${response.status}`
+        }
       }
+      console.error('Worker upload failed:', {
+        status: response.status,
+        code: errorCode,
+        message: errorMessage,
+        details: errorDetails,
+        filename,
+        contentType,
+        fileSize: file.size
+      })
       return NextResponse.json({ 
         error: errorMessage,
         code: errorCode,
-        message: 'Cloudflare Worker upload failed'
-      }, { status: response.status })
+        message: errorDetails || 'Cloudflare Worker upload failed'
+      }, { status: response.status >= 400 && response.status < 500 ? response.status : 400 })
     }
 
     // Worker returns JSON with url and filename

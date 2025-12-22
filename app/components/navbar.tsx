@@ -109,7 +109,7 @@ function ProfileButton() {
   )
 }
 
-export default function Navbar({ username }: { username?: string }) {
+export default function Navbar() {
   const uploadFormRef = useRef<ImageUploadFormHandle>(null)
   const [uploadState, setUploadState] = useState({ uploading: false, progress: 0, success: false })
 
@@ -122,7 +122,6 @@ export default function Navbar({ username }: { username?: string }) {
     <>
       <ImageUploadForm 
         ref={uploadFormRef} 
-        username={username} 
         onStateChange={setUploadState}
       />
       <nav className="flex flex-row z-50 bg-background items-center justify-center gap-4 py-4 md:py-8">

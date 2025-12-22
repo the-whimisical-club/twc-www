@@ -6,7 +6,7 @@ export default async function HomePage() {
 
   return (
     <div className="bg-background min-h-screen flex flex-col items-center justify-center">
-      <Navbar username={user.email || 'user'} />
+      <Navbar />
       <div className="flex justify-center align-middle text-4xl md:text-8xl text-foreground font-dark-london px-8 py-16 md:p-20 md:py-40">you're in</div>
       <div className="flex flex-col text-lg md:text-xl p-8 md:p-25 gap-8 text-foreground font-stack-sans-notch">
         <p>ok, so things are a little different here at the whimsy club.</p>

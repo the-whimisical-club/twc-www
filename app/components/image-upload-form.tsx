@@ -86,8 +86,22 @@ function applyOrientation(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext
   }
 }
 
-// Convert image to WebP format with iOS/HEIC support
-async function convertToWebP(file: File): Promise<Blob> {
+// Resolution constants
+const RES_1080P_WIDTH = 1920
+const RES_1080P_HEIGHT = 1080
+const RES_1440P_WIDTH = 2560
+const RES_1440P_HEIGHT = 1440
+
+// Custom error for resolution rejection
+export class ResolutionError extends Error {
+  code = 'RESOLUTION_TOO_LOW'
+  constructor() {
+    super('Image resolution is less than 1080p')
+  }
+}
+
+// Process image: check resolution, resize if needed, convert to JPEG
+async function processImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = async (e) => {
@@ -106,55 +120,76 @@ async function convertToWebP(file: File): Promise<Blob> {
             // Get EXIF orientation for iOS images
             const orientation = await getOrientation(file)
             
-            // Set canvas dimensions
-            if (orientation > 4) {
-              canvas.width = img.height
-              canvas.height = img.width
-            } else {
-              canvas.width = img.width
-              canvas.height = img.height
+            // Get source dimensions
+            let sourceWidth = img.width
+            let sourceHeight = img.height
+            const isRotated = orientation > 4
+            
+            // Calculate final output dimensions (after orientation)
+            let finalWidth = isRotated ? sourceHeight : sourceWidth
+            let finalHeight = isRotated ? sourceWidth : sourceHeight
+            
+            // Check if resolution is less than 1080p
+            if (finalWidth < RES_1080P_WIDTH && finalHeight < RES_1080P_HEIGHT) {
+              reject(new ResolutionError())
+              return
             }
+            
+            // Calculate target dimensions
+            let targetWidth = sourceWidth
+            let targetHeight = sourceHeight
+            
+            // If resolution is greater than 1440p, resize down to 1440p (maintain aspect ratio)
+            if (finalWidth > RES_1440P_WIDTH || finalHeight > RES_1440P_HEIGHT) {
+              const scale = Math.min(
+                RES_1440P_WIDTH / finalWidth,
+                RES_1440P_HEIGHT / finalHeight
+              )
+              targetWidth = Math.round(sourceWidth * scale)
+              targetHeight = Math.round(sourceHeight * scale)
+            }
+            // If between 1080p and 1440p, keep original size (no resizing needed)
+            // Just convert to JPEG if not already
+            
+            // Set canvas dimensions (before orientation transform)
+            canvas.width = targetWidth
+            canvas.height = targetHeight
 
-            // Apply orientation transformation
+            // Apply orientation transformation (this may swap dimensions if orientation > 4)
             ctx.save()
             applyOrientation(canvas, ctx, orientation)
-            ctx.drawImage(img, 0, 0)
+            
+            // Draw image at target size
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
             ctx.restore()
 
-            // Try WebP conversion with fallback
+            // Convert to JPEG with high quality (lossless conversion for between 1080p-1440p)
+            // Use 0.95 quality for high quality JPEG
             canvas.toBlob(
-              (blob) => {
-                if (blob) {
-                  resolve(blob)
+              (jpegBlob) => {
+                if (jpegBlob) {
+                  resolve(jpegBlob)
                 } else {
-                  // Fallback: if WebP fails, try JPEG (iOS Safari sometimes fails silently)
-                  canvas.toBlob(
-                    (jpegBlob) => {
-                      if (jpegBlob) {
-                        resolve(jpegBlob)
-                      } else {
-                        const error = new Error('Failed to convert image. Please try a different image.') as Error & { code?: string }
-                        error.code = 'CLIENT_001'
-                        reject(error)
-                      }
-                    },
-                    'image/jpeg',
-                    0.9
-                  )
+                  const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
+                  error.code = 'CLIENT_001'
+                  reject(error)
                 }
               },
-              'image/webp',
-              0.9 // Quality (0-1)
+              'image/jpeg',
+              0.95 // High quality JPEG
             )
           } catch (err) {
-            const error = new Error(`Image processing failed: ${err instanceof Error ? err.message : 'Unknown error'}`) as Error & { code?: string }
-            error.code = 'CLIENT_002'
-            reject(error)
+            if (err instanceof ResolutionError) {
+              reject(err)
+            } else {
+              const error = new Error(`Image processing failed: ${err instanceof Error ? err.message : 'Unknown error'}`) as Error & { code?: string }
+              error.code = 'CLIENT_002'
+              reject(error)
+            }
           }
         }
         
         img.onerror = () => {
-          // If image fails to load, try using the original file as fallback
           const error = new Error('Failed to load image. Please try a different image format.') as Error & { code?: string }
           error.code = 'CLIENT_003'
           reject(error)
@@ -162,60 +197,24 @@ async function convertToWebP(file: File): Promise<Blob> {
         
         img.src = e.target?.result as string
       } catch (err) {
-        reject(new Error(`Failed to process image: ${err instanceof Error ? err.message : 'Unknown error'}`))
+        if (err instanceof ResolutionError) {
+          reject(err)
+        } else {
+          reject(new Error(`Failed to process image: ${err instanceof Error ? err.message : 'Unknown error'}`))
+        }
       }
     }
-      reader.onerror = () => {
-        const error = new Error('Failed to read file') as Error & { code?: string }
-        error.code = 'CLIENT_004'
-        reject(error)
-      }
-      reader.readAsDataURL(file)
+    reader.onerror = () => {
+      const error = new Error('Failed to read file') as Error & { code?: string }
+      error.code = 'CLIENT_004'
+      reject(error)
+    }
+    reader.readAsDataURL(file)
   })
-}
-
-// Note: Filename generation is now handled server-side to include folder structure
-// This function is kept for backward compatibility but won't be used
-function generateFilename(originalFile: File, email: string): string {
-  const now = new Date()
-  const dd = String(now.getDate()).padStart(2, '0')
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const yyyy = now.getFullYear()
-  
-  // Extract username from email (part before @)
-  const username = email.split('@')[0] || email
-  
-  // Sanitize username (remove special chars, keep alphanumeric, replace with dash)
-  const sanitizedUsername = username.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-  
-  // Generate 10-character alphanumeric random sequence
-  // Use crypto if available for better randomness, otherwise fallback to Math.random
-  const generateRandomSequence = (): string => {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    let result = ''
-    const getRandomIndex = (max: number): number => {
-      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-        const array = new Uint32Array(1)
-        crypto.getRandomValues(array)
-        return array[0]! % max
-      }
-      return Math.floor(Math.random() * max)
-    }
-    for (let i = 0; i < 10; i++) {
-      result += chars[getRandomIndex(chars.length)]
-    }
-    return result
-  }
-  
-  const randomSequence = generateRandomSequence()
-  
-  // Return format: username/dd-mm-yyyy-filename.webp (with folder structure)
-  return `${sanitizedUsername}/${dd}-${mm}-${yyyy}-${randomSequence}.webp`
 }
 
 interface ImageUploadFormProps {
   onStateChange?: (state: { uploading: boolean; progress: number; success: boolean }) => void
-  username?: string // Optional, server will generate filename if not provided
 }
 
 const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>((props, ref) => {
@@ -251,233 +250,93 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
     resetState()
 
     try {
-      // Convert to WebP
+      // Process image: check resolution, resize if needed, convert to JPEG
       setProgress(5)
       notifyStateChange({ uploading: true, progress: 5, success: false })
-      const webpBlob = await convertToWebP(file)
+      const jpegBlob = await processImage(file)
       
-      // Generate filename (server will regenerate with folder structure if username provided)
-      // If username is not provided, server will generate filename from user session
-      const filename = props.username 
-        ? generateFilename(file, props.username)
-        : `temp-${Date.now()}.webp` // Temporary filename, server will replace it
+      // Server will generate filename from user session
+      const filename = `temp-${Date.now()}.jpg` // Temporary filename, server will replace it
       
       setProgress(10)
       notifyStateChange({ uploading: true, progress: 10, success: false })
 
-      // Detect Safari/iOS for special handling
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-      
-      // Use XMLHttpRequest for progress tracking (with Safari fallback)
+      // Use XMLHttpRequest for all browsers - most reliable for file uploads
+      // Safari has known issues with fetch + FormData ("Body is disturbed or locked")
       const formData = new FormData()
-      formData.append('image', webpBlob, filename)
-      // Only send filename if we have username, otherwise let server generate it
-      if (props.username) {
-        formData.append('filename', filename)
-      }
+      formData.append('image', jpegBlob, filename)
 
-      // For Safari/iOS, use fetch API as it's more reliable
-      if (isSafari || isIOS) {
-        // Safari-specific error detection
-        const detectSafariError = (err: unknown): Error & { code?: string; message?: string } => {
-          const errorMessage = err instanceof Error ? err.message : String(err)
-          
-          // CORS errors
-          if (errorMessage.includes('CORS') || errorMessage.includes('cross-origin') || errorMessage.includes('Access-Control')) {
-            const error = new Error('Safari CORS error - authentication may have expired') as Error & { code?: string; message?: string }
-            error.code = 'SAFARI_001'
-            error.message = 'Cross-origin request blocked by Safari. Try refreshing the page and logging in again.'
-            return error
-          }
-          
-          // Cookie/session errors
-          if (errorMessage.includes('cookie') || errorMessage.includes('session') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-            const error = new Error('Safari session error - please refresh and try again') as Error & { code?: string; message?: string }
-            error.code = 'SAFARI_002'
-            error.message = 'Safari failed to send authentication cookies. Refresh the page and try again.'
-            return error
-          }
-          
-          // Fetch/network errors
-          if (err instanceof TypeError) {
-            if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('network')) {
-              const error = new Error('Safari network error - check connection') as Error & { code?: string; message?: string }
-              error.code = 'SAFARI_003'
-              error.message = 'Safari failed to connect to server. Check your connection or try again.'
-              return error
-            }
-            if (errorMessage.includes('aborted') || errorMessage.includes('cancel')) {
-              const error = new Error('Safari upload cancelled') as Error & { code?: string; message?: string }
-              error.code = 'SAFARI_004'
-              error.message = 'Upload was cancelled or interrupted by Safari.'
-              return error
-            }
-          }
-          
-          // Timeout errors
-          if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
-            const error = new Error('Safari upload timeout') as Error & { code?: string; message?: string }
-            error.code = 'SAFARI_005'
-            error.message = 'Upload timed out. File may be too large for Safari. Try a smaller image.'
-            return error
-          }
-          
-          // Memory/Blob errors
-          if (errorMessage.includes('memory') || errorMessage.includes('Blob') || errorMessage.includes('quota')) {
-            const error = new Error('Safari memory error - file too large') as Error & { code?: string; message?: string }
-            error.code = 'SAFARI_006'
-            error.message = 'Safari ran out of memory processing the image. Try a smaller or lower resolution image.'
-            return error
-          }
-          
-          // FormData errors
-          if (errorMessage.includes('FormData') || errorMessage.includes('multipart')) {
-            const error = new Error('Safari FormData error') as Error & { code?: string; message?: string }
-            error.code = 'SAFARI_007'
-            error.message = 'Safari failed to process the file. Try a different image format.'
-            return error
-          }
-          
-          // Generic Safari error
-          const error = new Error(`Safari upload error: ${errorMessage}`) as Error & { code?: string; message?: string }
-          error.code = 'SAFARI_008'
-          error.message = `Safari-specific error occurred: ${errorMessage}`
-          return error
+      // Use XMLHttpRequest for all browsers - most reliable for file uploads
+      // Safari has known issues with fetch + FormData ("Body is disturbed or locked")
+      const xhr = new XMLHttpRequest()
+
+      // Upload via API route (which handles Worker upload and DB save)
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          // Map progress from 10-100% (since conversion takes first 10%)
+          const uploadProgress = (event.loaded / event.total) * 90
+          const totalProgress = 10 + uploadProgress
+          setProgress(totalProgress)
+          notifyStateChange({ uploading: true, progress: totalProgress, success: false })
         }
+      })
 
-        const uploadPromise = fetch('/api/images/upload', {
-          method: 'POST',
-          body: formData,
-          credentials: 'include', // Important for Safari to send cookies
-          headers: {
-            // Don't set Content-Type - let browser set it with boundary for FormData
-          },
-        }).then(async (response) => {
-          if (!response.ok) {
-            let errorData: { error?: string; code?: string; message?: string } = {}
+      const uploadPromise = new Promise<{ url: string; filename: string }>((resolve, reject) => {
+        // Add timeout (60 seconds)
+        const timeout = setTimeout(() => {
+          xhr.abort()
+          const error = new Error('Upload timeout - file may be too large') as Error & { code?: string }
+          error.code = 'CLIENT_008'
+          reject(error)
+        }, 60000)
+
+        xhr.addEventListener('load', () => {
+          clearTimeout(timeout)
+          if (xhr.status === 200) {
             try {
-              errorData = await response.json()
+              const data = JSON.parse(xhr.responseText) as { url: string; filename: string }
+              resolve(data)
+            } catch (err) {
+              const error = new Error('Failed to parse response') as Error & { code?: string }
+              error.code = 'CLIENT_005'
+              reject(error)
+            }
+          } else {
+            try {
+              const errorData = JSON.parse(xhr.responseText) as { error?: string; code?: string; message?: string }
+              const error = new Error(errorData.error || `Upload failed (${xhr.status})`) as Error & { code?: string; message?: string }
+              error.code = errorData.code || 'CLIENT_006'
+              error.message = errorData.message || error.message
+              reject(error)
             } catch {
-              // If response isn't JSON, get text
-              const text = await response.text()
-              errorData = { error: text || `HTTP ${response.status}` }
+              const error = new Error(`Upload failed (HTTP ${xhr.status})`) as Error & { code?: string }
+              error.code = 'CLIENT_006'
+              reject(error)
             }
-            
-            // Check for specific HTTP status codes that indicate Safari issues
-            if (response.status === 401 || response.status === 403) {
-              const error = new Error(errorData.error || `Authentication failed (${response.status})`) as Error & { code?: string; message?: string }
-              error.code = 'SAFARI_002'
-              error.message = errorData.message || 'Safari failed to send authentication. Refresh the page and try again.'
-              throw error
-            }
-            
-            if (response.status === 0) {
-              // Status 0 usually means CORS or network error in Safari
-              const error = new Error('Safari CORS or network error') as Error & { code?: string; message?: string }
-              error.code = 'SAFARI_001'
-              error.message = 'Safari blocked the request. This may be a CORS issue. Try refreshing the page.'
-              throw error
-            }
-            
-            const error = new Error(errorData.error || `Upload failed (${response.status})`) as Error & { code?: string; message?: string }
-            error.code = errorData.code || 'CLIENT_006'
-            error.message = errorData.message || error.message
-            throw error
-          }
-          return response.json() as Promise<{ url: string; filename: string }>
-        }).catch((err) => {
-          // Use Safari-specific error detection
-          throw detectSafariError(err)
-        })
-
-        // Simulate progress for Safari (since fetch doesn't support upload progress)
-        setProgress(30)
-        notifyStateChange({ uploading: true, progress: 30, success: false })
-        
-        // Add timeout for Safari (60 seconds) with Safari-specific error
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            const error = new Error('Safari upload timeout - file may be too large') as Error & { code?: string; message?: string }
-            error.code = 'SAFARI_005'
-            error.message = 'Upload timed out in Safari. File may be too large. Try a smaller image.'
-            reject(error)
-          }, 60000)
-        })
-
-        const result = await Promise.race([uploadPromise, timeoutPromise])
-        const { url } = result
-      } else {
-        // Use XMLHttpRequest for other browsers (supports progress)
-        const xhr = new XMLHttpRequest()
-
-        // Upload via API route (which handles Worker upload and DB save)
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            // Map progress from 10-100% (since conversion takes first 10%)
-            const uploadProgress = (event.loaded / event.total) * 90
-            const totalProgress = 10 + uploadProgress
-            setProgress(totalProgress)
-            notifyStateChange({ uploading: true, progress: totalProgress, success: false })
           }
         })
 
-        const uploadPromise = new Promise<{ url: string; filename: string }>((resolve, reject) => {
-          // Add timeout (60 seconds)
-          const timeout = setTimeout(() => {
-            xhr.abort()
-            const error = new Error('Upload timeout - file may be too large') as Error & { code?: string }
-            error.code = 'CLIENT_008'
-            reject(error)
-          }, 60000)
-
-          xhr.addEventListener('load', () => {
-            clearTimeout(timeout)
-            if (xhr.status === 200) {
-              try {
-                const data = JSON.parse(xhr.responseText) as { url: string; filename: string }
-                resolve(data)
-              } catch (err) {
-                const error = new Error('Failed to parse response') as Error & { code?: string }
-                error.code = 'CLIENT_005'
-                reject(error)
-              }
-            } else {
-              try {
-                const errorData = JSON.parse(xhr.responseText) as { error?: string; code?: string; message?: string }
-                const error = new Error(errorData.error || `Upload failed (${xhr.status})`) as Error & { code?: string; message?: string }
-                error.code = errorData.code || 'CLIENT_006'
-                error.message = errorData.message || error.message
-                reject(error)
-              } catch {
-                const error = new Error(`Upload failed (HTTP ${xhr.status})`) as Error & { code?: string }
-                error.code = 'CLIENT_006'
-                reject(error)
-              }
-            }
-          })
-
-          xhr.addEventListener('error', () => {
-            clearTimeout(timeout)
-            const error = new Error('Network error') as Error & { code?: string }
-            error.code = 'CLIENT_007'
-            reject(error)
-          })
-
-          xhr.addEventListener('abort', () => {
-            clearTimeout(timeout)
-            const error = new Error('Upload cancelled or timed out') as Error & { code?: string }
-            error.code = 'CLIENT_008'
-            reject(error)
-          })
-
-          xhr.open('POST', '/api/images/upload')
-          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest') // Help with CORS
-          xhr.send(formData)
+        xhr.addEventListener('error', () => {
+          clearTimeout(timeout)
+          const error = new Error('Network error') as Error & { code?: string }
+          error.code = 'CLIENT_007'
+          reject(error)
         })
 
-        const { url } = await uploadPromise
-      }
+        xhr.addEventListener('abort', () => {
+          clearTimeout(timeout)
+          const error = new Error('Upload cancelled or timed out') as Error & { code?: string }
+          error.code = 'CLIENT_008'
+          reject(error)
+        })
+
+        xhr.open('POST', '/api/images/upload')
+        // Don't set Content-Type - let browser set it with boundary for FormData
+        // This is critical for Safari to work properly
+        xhr.send(formData)
+      })
+
+      const { url } = await uploadPromise
 
       // Both paths set url, now continue with success handling
 
@@ -496,6 +355,16 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         router.push('/feed')
       }, 1000)
     } catch (err) {
+      // Handle resolution error - redirect to /bruh
+      if (err instanceof ResolutionError) {
+        setUploading(false)
+        setProgress(0)
+        setSuccess(false)
+        notifyStateChange({ uploading: false, progress: 0, success: false })
+        router.push('/bruh')
+        return
+      }
+      
       setUploading(false)
       setProgress(0)
       setSuccess(false)
@@ -532,9 +401,12 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         >
           <div className="font-medium">{message.text}</div>
           {message.code && message.type === 'error' && (
-            <div className="text-xs mt-1 opacity-90">
-              Error Code: {message.code} | See docs/error_codes.mdx for details
-            </div>
+            <a 
+              href="/errors" 
+              className="text-xs mt-1 opacity-90 hover:opacity-100 underline cursor-pointer block"
+            >
+              Error Code: {message.code} | Click to see what this means
+            </a>
           )}
         </div>
       )}

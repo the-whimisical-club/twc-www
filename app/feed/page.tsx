@@ -11,7 +11,7 @@ export default async function FeedPage() {
 
   return (
     <div className="bg-background min-h-screen">
-      <Navbar username={user.email || 'user'} />
+      <Navbar />
       <div className="flex justify-center align-middle text-4xl md:text-8xl text-foreground font-dark-london px-8 py-16 md:p-20 md:py-40">feed</div>
         
         {images.length === 0 ? (

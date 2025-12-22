@@ -12,7 +12,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="bg-background min-h-screen">
-      <Navbar username={user.email || 'user'} />
+      <Navbar />
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] p-8">
         <div className="max-w-2xl w-full space-y-8">
           <div className="flex items-baseline justify-between">
