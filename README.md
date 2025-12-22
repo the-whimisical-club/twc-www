@@ -8,28 +8,6 @@
 bun install
 ```
 
-### Python Dependencies
-
-Image processing is handled by a Python script. Set up a virtual environment and install dependencies:
-
-```bash
-# Create virtual environment
-python3 -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-Or install Pillow directly:
-
-```bash
-pip install Pillow
-```
-
-**Note**: The virtual environment is automatically used by the server. You don't need to activate it manually when running the app.
 
 ## Running
 
@@ -54,19 +32,15 @@ This will:
 
 ## Image Processing
 
-Image processing is handled server-side by a Python script (`scripts/process_image.py`) using Pillow:
+Image processing is handled server-side using Sharp (Node.js image processing library):
 
 - **Resolution check**: Images must be at least 1080p (1920x1080)
 - **Auto-rotation**: Handles EXIF orientation (fixes iOS image rotation)
 - **Resizing**: Images larger than 4K (3840x2160) are resized down to 4K
-- **Format conversion**: All images are converted to JPEG format
+- **Format conversion**: Non-JPEG images are converted to JPEG format
+- **JPEG passthrough**: JPEG/JPG files that don't need resizing pass through efficiently (EXIF still handled)
 
-The Python script:
-- Reads image data from stdin
-- Processes the image
-- Outputs JPEG to stdout
-
-All processing logic is in Python - the client just uploads the original file.
+All processing logic is server-side - the client just uploads the original file.
 
 ## Environment Variables
 

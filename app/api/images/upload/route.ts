@@ -2,8 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ensureUser, isUserApproved } from '@/app/utils/users'
-import { spawn } from 'child_process'
-import { join } from 'path'
+import sharp from 'sharp'
 
 // Configure body size limit for this route (15MB to allow buffer above 10MB worker limit)
 export const maxDuration = 60 // 60 seconds timeout
@@ -87,85 +86,108 @@ export async function POST(request: Request) {
       }, { status: 413 })
     }
 
-    // Process image with Python script (simple and reliable)
+    // Process image with Sharp (works in serverless environments like Vercel)
     let processedImageBuffer: Buffer
     try {
       const imageBuffer = Buffer.from(await file.arrayBuffer())
-      const scriptPath = join(process.cwd(), 'scripts', 'process_image.py')
-      const venvPython = join(process.cwd(), 'venv', 'bin', 'python3')
       
-      // Run Python script with image data as stdin (use venv Python)
-      const processed = await new Promise<{ stdout: Buffer; stderr: string }>((resolve, reject) => {
-        const python = spawn(venvPython, [scriptPath])
-        const stdoutChunks: Buffer[] = []
-        const stderrChunks: string[] = []
-        
-        python.stdout.on('data', (chunk: Buffer) => {
-          stdoutChunks.push(chunk)
-        })
-        
-        python.stderr.on('data', (chunk: Buffer) => {
-          stderrChunks.push(chunk.toString())
-        })
-        
-        python.on('close', (code) => {
-          const stderr = stderrChunks.join('')
-          if (code !== 0) {
-            if (stderr.includes('RESOLUTION_TOO_LOW')) {
-              reject(new Error('RESOLUTION_TOO_LOW'))
-            } else {
-              reject(new Error(`Python script failed with code ${code}: ${stderr}`))
-            }
-            return
-          }
-          resolve({
-            stdout: Buffer.concat(stdoutChunks),
-            stderr
+      // Constants for resolution checks
+      const RES_1080P_WIDTH = 1920
+      const RES_1080P_HEIGHT = 1080
+      const RES_4K_WIDTH = 3840
+      const RES_4K_HEIGHT = 2160
+      
+      // Check if file is already JPEG/JPG
+      const isAlreadyJpeg = imageBuffer[0] === 0xFF && imageBuffer[1] === 0xD8
+      const fileExtension = file.name.toLowerCase().split('.').pop()
+      const isJpegFile = fileExtension === 'jpg' || fileExtension === 'jpeg'
+      
+      // Load image and get metadata (Sharp auto-handles EXIF orientation)
+      const image = sharp(imageBuffer)
+      const metadata = await image.metadata()
+      
+      if (!metadata.width || !metadata.height) {
+        throw new Error('Could not read image dimensions')
+      }
+      
+      let width = metadata.width
+      let height = metadata.height
+      
+      // Check if resolution is less than 1080p
+      if (width < RES_1080P_WIDTH && height < RES_1080P_HEIGHT) {
+        return NextResponse.json({ 
+          error: 'Resolution too low', 
+          code: 'UPLOAD_010',
+          message: 'Image resolution must be at least 1080p'
+        }, { status: 400 })
+      }
+      
+      // Check if needs resizing (only if > 4K/2160p)
+      const needsResize = width > RES_4K_WIDTH || height > RES_4K_HEIGHT
+      
+      // If already JPEG/JPG and doesn't need resizing, pass through (but still handle EXIF)
+      if ((isAlreadyJpeg || isJpegFile) && !needsResize) {
+        // Still process through Sharp to handle EXIF orientation, but output as-is
+        processedImageBuffer = await image
+          .jpeg({ 
+            quality: 95, 
+            mozjpeg: true 
           })
-        })
+          .toBuffer()
         
-        python.on('error', (err) => {
-          reject(new Error(`Failed to spawn Python: ${err.message}`))
+        console.log('JPEG file passed through (EXIF handled):', {
+          originalSize: imageBuffer.length,
+          processedSize: processedImageBuffer.length,
+          dimensions: `${width}x${height}`,
+          format: 'JPEG'
         })
+      } else {
+        // Build processing pipeline for non-JPEG or files needing resizing
+        let pipeline = image
         
-        // Write image buffer to stdin
-        python.stdin.write(imageBuffer)
-        python.stdin.end()
-      })
-      
-      processedImageBuffer = processed.stdout
-      
-      // Log what we got from Python
-      const firstBytes = Array.from(processedImageBuffer.slice(0, 12))
-        .map(b => '0x' + b.toString(16).padStart(2, '0'))
-        .join(' ')
-      const isJpeg = processedImageBuffer[0] === 0xFF && processedImageBuffer[1] === 0xD8
-      const isWebP = processedImageBuffer[0] === 0x52 && 
-                     processedImageBuffer[1] === 0x49 && 
-                     processedImageBuffer[2] === 0x46 && 
-                     processedImageBuffer[3] === 0x46
-      
-      console.log('Python script output:', {
-        size: processedImageBuffer.length,
-        firstBytes,
-        isJpeg,
-        isWebP,
-        format: isJpeg ? 'JPEG' : isWebP ? 'WEBP' : 'UNKNOWN'
-      })
-      
-      // Verify it's actually JPEG
-      if (!isJpeg) {
-        if (isWebP) {
-          throw new Error('Python script output WebP instead of JPEG! This should not happen.')
+        if (needsResize) {
+          // Calculate scale to fit within 4K
+          const scale = Math.min(RES_4K_WIDTH / width, RES_4K_HEIGHT / height)
+          const newWidth = Math.round(width * scale)
+          const newHeight = Math.round(height * scale)
+          pipeline = pipeline.resize(newWidth, newHeight, {
+            kernel: sharp.kernel.lanczos3
+          })
         }
-        throw new Error(`Python script did not output valid JPEG. First bytes: ${firstBytes}`)
+        
+        // Convert to JPEG (always JPEG, quality 95, optimized)
+        processedImageBuffer = await pipeline
+          .jpeg({ 
+            quality: 95, 
+            mozjpeg: true 
+          })
+          .toBuffer()
+        
+        console.log('Image processed with Sharp:', {
+          originalSize: imageBuffer.length,
+          processedSize: processedImageBuffer.length,
+          originalDimensions: `${metadata.width}x${metadata.height}`,
+          processedDimensions: needsResize ? `${Math.round(width * Math.min(RES_4K_WIDTH / width, RES_4K_HEIGHT / height))}x${Math.round(height * Math.min(RES_4K_WIDTH / width, RES_4K_HEIGHT / height))}` : `${width}x${height}`,
+          wasResized: needsResize,
+          wasConverted: !isAlreadyJpeg && !isJpegFile,
+          format: 'JPEG'
+        })
+      }
+      
+      // Verify it's actually JPEG (check magic bytes: FF D8)
+      const isJpeg = processedImageBuffer[0] === 0xFF && processedImageBuffer[1] === 0xD8
+      if (!isJpeg) {
+        const firstBytes = Array.from(processedImageBuffer.slice(0, 4))
+          .map(b => '0x' + b.toString(16).padStart(2, '0'))
+          .join(' ')
+        throw new Error(`Image processing did not output valid JPEG. First bytes: ${firstBytes}`)
       }
     } catch (err) {
       console.error('Image processing error:', err)
       const errorMessage = err instanceof Error ? err.message : 'Image processing failed'
       
-      // Check if it's a resolution error
-      if (errorMessage.includes('RESOLUTION_TOO_LOW')) {
+      // Check if it's a resolution error (shouldn't happen here, but just in case)
+      if (errorMessage.includes('Resolution too low') || errorMessage.includes('RESOLUTION_TOO_LOW')) {
         return NextResponse.json({ 
           error: 'Resolution too low', 
           code: 'UPLOAD_010',

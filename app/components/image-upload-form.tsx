@@ -45,7 +45,7 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
     resetState()
 
     try {
-      // Simple file upload - all processing done server-side in Python
+      // Simple file upload - all processing done server-side with Sharp
       const formData = new FormData()
       formData.append('image', file)
 
