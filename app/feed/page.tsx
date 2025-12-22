@@ -20,32 +20,26 @@ export default async function FeedPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full p-8">
-            {images.map((image) => (
-              <div key={image.id} className="flex flex-col">
-                <div className="aspect-square overflow-hidden rounded w-full">
-                  <img
-                    src={image.url}
-                    alt={`Uploaded image ${image.id}`}
-                    className="w-full h-full object-cover"
-                  />
+            {images.map((image) => {
+              const user = Array.isArray(image.users) ? image.users[0] : (image.users as { username: string; display_name: string | null } | null);
+              const userName = user ? (user.display_name || user.username) : 'unknown';
+              return (
+                <div key={image.id} className="flex flex-col">
+                  <div className="aspect-square overflow-hidden rounded w-full">
+                    <img
+                      src={image.url}
+                      alt={`photo by ${userName}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="text-foreground font-stack-sans-notch text-sm mt-2">
+                    {userName}
+                  </div>
                 </div>
-                {(() => {
-                  const user = Array.isArray(image.users) ? image.users[0] : (image.users as { username: string; display_name: string | null } | null);
-                  return user ? (
-                    <div className="text-foreground font-stack-sans-notch text-sm mt-2">
-                      {user.display_name || user.username}
-                    </div>
-                  ) : (
-                    <div className="text-foreground/60 font-stack-sans-notch text-sm mt-2">
-                      unknown
-                    </div>
-                  );
-                })()}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
   )
 }
-
