@@ -74,6 +74,35 @@ This document provides a reference for all error codes that may appear during im
 - Check if the issue persists with different images
 - Contact support with the error code
 
+### UPLOAD_008 - File Too Large
+**Status:** 413  
+**Message:** File exceeds 100MB limit  
+**Description:** The uploaded file exceeds the 100MB size limit. Note that images are automatically compressed to WebP format, so original files can be larger than the final stored size. This error occurs when:
+- Image file is extremely large (very high resolution photos)
+- Raw image formats (RAW, TIFF) that are uncompressed
+- Next.js body size limit was exceeded
+
+**Solution:**
+- Use a smaller image file
+- Maximum allowed size: 100MB (original file)
+- Images are automatically compressed to WebP, so you don't need to pre-compress
+- On iPhone: Very high resolution photos may need to be resized first
+
+### UPLOAD_009 - Request Processing Failed
+**Status:** 400  
+**Message:** Request processing failed  
+**Description:** The server failed to process the upload request. This can happen when:
+- Request body was truncated (exceeded size limit)
+- FormData parsing failed
+- Request format was invalid
+
+**Solution:**
+- Try uploading a smaller file
+- Refresh the page and try again
+- Check if your file is corrupted
+- Try a different image file
+- If problem persists, contact support
+
 ## Client-Side Error Codes (CLIENT_XXX)
 
 ### CLIENT_001 - Image Conversion Failed
@@ -150,6 +179,20 @@ This document provides a reference for all error codes that may appear during im
 - Try again after a few moments
 - Check if other websites are accessible
 
+### CLIENT_008 - Upload Timeout
+**Message:** Upload timeout - file may be too large  
+**Description:** The upload request timed out after 60 seconds. This can happen with:
+- Very large files
+- Slow network connections
+- Safari/iOS upload issues
+
+**Solution:**
+- Reduce the image file size (compress or resize)
+- Check your network connection speed
+- Try again on a faster network
+- On iPhone: Convert HEIC to JPEG before uploading
+- Try uploading a smaller image first to test
+
 ## Worker Error Codes (WORKER_XXX)
 
 ### WORKER_001 - Invalid Content Type
@@ -164,11 +207,11 @@ This document provides a reference for all error codes that may appear during im
 ### WORKER_002 - File Too Large
 **Status:** 400  
 **Message:** File size exceeds maximum limit  
-**Description:** The file exceeds the 10MB size limit.  
+**Description:** The file exceeds the 100MB size limit. Note that original files can be up to 100MB and will be automatically compressed to WebP format for storage.  
 **Solution:**
-- Compress or resize the image
-- Use image editing software to reduce file size
-- Maximum allowed size: 10MB
+- Use a smaller image file
+- Maximum allowed size: 100MB (original file, will be compressed)
+- Images are automatically compressed, so you don't need to pre-compress
 
 ### WORKER_003 - R2 Storage Upload Failed
 **Status:** 500  
@@ -178,6 +221,110 @@ This document provides a reference for all error codes that may appear during im
 - Try again after a few moments
 - Check your internet connection
 - Contact support if the issue persists
+
+## Safari/iOS-Specific Error Codes (SAFARI_XXX)
+
+These error codes are specific to Safari on iOS and macOS. Safari has unique behaviors that can cause upload issues.
+
+### SAFARI_001 - CORS Error
+**Message:** Safari CORS error - authentication may have expired  
+**Description:** Safari blocked the request due to Cross-Origin Resource Sharing (CORS) restrictions. This often happens when:
+- Authentication cookies aren't being sent properly
+- Session has expired
+- Safari's privacy settings are blocking cookies
+
+**Solution:**
+- Refresh the page and log in again
+- Check Safari's privacy settings (Settings → Safari → Prevent Cross-Site Tracking)
+- Try disabling "Prevent Cross-Site Tracking" temporarily
+- Clear Safari cookies and cache, then log in again
+- Try using a different browser (Chrome, Firefox) to confirm it's Safari-specific
+
+### SAFARI_002 - Session/Authentication Error
+**Message:** Safari session error - please refresh and try again  
+**Description:** Safari failed to send authentication cookies or the session expired. This is common on iOS Safari.
+
+**Solution:**
+- Refresh the page completely (pull down to refresh)
+- Log out and log back in
+- Clear Safari cookies for the site
+- Ensure cookies are enabled in Safari settings
+- Try again after a few moments
+- Check if you're in Private Browsing mode (which blocks cookies)
+
+### SAFARI_003 - Network Error (Safari-Specific)
+**Message:** Safari network error - check connection  
+**Description:** Safari failed to connect to the server, even with good network. This can be due to:
+- Safari's aggressive request blocking
+- Network security settings
+- VPN or proxy issues
+
+**Solution:**
+- Check if other websites work in Safari
+- Try disabling VPN if active
+- Check Safari's network settings
+- Try on a different network
+- Restart Safari or the device
+
+### SAFARI_004 - Upload Cancelled
+**Message:** Safari upload cancelled  
+**Description:** Safari cancelled or interrupted the upload. This can happen if:
+- User switched apps
+- Safari went to background
+- Memory pressure caused Safari to kill the request
+
+**Solution:**
+- Keep Safari in foreground during upload
+- Don't switch apps while uploading
+- Close other apps to free memory
+- Try uploading a smaller file first
+
+### SAFARI_005 - Upload Timeout (Safari-Specific)
+**Message:** Safari upload timeout  
+**Description:** Upload timed out in Safari. Safari has stricter timeout limits than other browsers.
+
+**Solution:**
+- Reduce image file size
+- Compress the image before uploading
+- Try a lower resolution image
+- Ensure stable network connection
+- Close other Safari tabs
+
+### SAFARI_006 - Memory Error
+**Message:** Safari memory error - file too large  
+**Description:** Safari ran out of memory processing the image. Safari on iOS has strict memory limits.
+
+**Solution:**
+- Use a smaller image file
+- Reduce image resolution before uploading
+- Close other apps and Safari tabs
+- Convert HEIC to JPEG (JPEG uses less memory)
+- Try uploading from a device with more available memory
+
+### SAFARI_007 - FormData Error
+**Message:** Safari FormData error  
+**Description:** Safari failed to process the FormData. This can happen with:
+- Corrupted file data
+- Unsupported file format
+- Safari's FormData implementation issues
+
+**Solution:**
+- Try a different image file
+- Convert the image to a standard format (JPEG, PNG)
+- Ensure the file isn't corrupted
+- Try a smaller file size
+- Update iOS to the latest version
+
+### SAFARI_008 - Generic Safari Error
+**Message:** Safari upload error  
+**Description:** A Safari-specific error occurred that doesn't match other categories.
+
+**Solution:**
+- Check the specific error message for details
+- Try refreshing the page
+- Update Safari/iOS to the latest version
+- Try using a different browser to confirm it's Safari-specific
+- Report the error with the specific message
 
 ## Common iPhone-Specific Issues
 
@@ -205,12 +352,20 @@ This document provides a reference for all error codes that may appear during im
 - If images are still rotated, try rotating them manually before uploading
 
 ### Safari-Specific Issues
-**Symptoms:** Various CLIENT_XXX errors  
-**Cause:** Safari on iOS has limitations with WebP and canvas operations  
+**Symptoms:** SAFARI_XXX errors, CLIENT_006, CLIENT_007  
+**Cause:** Safari on iOS has unique limitations and behaviors:
+- Stricter CORS enforcement
+- Cookie/session handling differences
+- Memory limitations
+- FormData processing issues
+- WebP and canvas operation limitations
+
 **Solution:**
+- Check for SAFARI_XXX error codes (more specific than CLIENT_XXX)
 - Update iOS to the latest version
-- Try using Chrome or Firefox on iOS
-- The app includes fallbacks for Safari limitations
+- Try using Chrome or Firefox on iOS to confirm it's Safari-specific
+- The app includes Safari-specific error detection and fallbacks
+- See individual SAFARI_XXX error codes above for specific solutions
 
 ## Troubleshooting Steps
 

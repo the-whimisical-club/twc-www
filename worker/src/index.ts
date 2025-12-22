@@ -38,8 +38,8 @@ function sanitizeFilename(filename: string): string {
   return sanitizedParts.join('/');
 }
 
-// Max file size: 10MB
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Max file size: 100MB (original files can be large, they'll be compressed to WebP)
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -169,7 +169,7 @@ export default {
         if (body.byteLength > MAX_FILE_SIZE) {
           return new Response(
             JSON.stringify({ 
-              error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+              error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB (original file, will be compressed)`,
               code: 'WORKER_002',
               message: 'File size exceeds maximum limit'
             }),

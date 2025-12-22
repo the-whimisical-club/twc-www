@@ -265,8 +265,11 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       setProgress(10)
       notifyStateChange({ uploading: true, progress: 10, success: false })
 
-      // Use XMLHttpRequest for progress tracking
-      const xhr = new XMLHttpRequest()
+      // Detect Safari/iOS for special handling
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      
+      // Use XMLHttpRequest for progress tracking (with Safari fallback)
       const formData = new FormData()
       formData.append('image', webpBlob, filename)
       // Only send filename if we have username, otherwise let server generate it
@@ -274,54 +277,209 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         formData.append('filename', filename)
       }
 
-      // Upload via API route (which handles Worker upload and DB save)
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          // Map progress from 10-100% (since conversion takes first 10%)
-          const uploadProgress = (event.loaded / event.total) * 90
-          const totalProgress = 10 + uploadProgress
-          setProgress(totalProgress)
-          notifyStateChange({ uploading: true, progress: totalProgress, success: false })
+      // For Safari/iOS, use fetch API as it's more reliable
+      if (isSafari || isIOS) {
+        // Safari-specific error detection
+        const detectSafariError = (err: unknown): Error & { code?: string; message?: string } => {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          
+          // CORS errors
+          if (errorMessage.includes('CORS') || errorMessage.includes('cross-origin') || errorMessage.includes('Access-Control')) {
+            const error = new Error('Safari CORS error - authentication may have expired') as Error & { code?: string; message?: string }
+            error.code = 'SAFARI_001'
+            error.message = 'Cross-origin request blocked by Safari. Try refreshing the page and logging in again.'
+            return error
+          }
+          
+          // Cookie/session errors
+          if (errorMessage.includes('cookie') || errorMessage.includes('session') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+            const error = new Error('Safari session error - please refresh and try again') as Error & { code?: string; message?: string }
+            error.code = 'SAFARI_002'
+            error.message = 'Safari failed to send authentication cookies. Refresh the page and try again.'
+            return error
+          }
+          
+          // Fetch/network errors
+          if (err instanceof TypeError) {
+            if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('network')) {
+              const error = new Error('Safari network error - check connection') as Error & { code?: string; message?: string }
+              error.code = 'SAFARI_003'
+              error.message = 'Safari failed to connect to server. Check your connection or try again.'
+              return error
+            }
+            if (errorMessage.includes('aborted') || errorMessage.includes('cancel')) {
+              const error = new Error('Safari upload cancelled') as Error & { code?: string; message?: string }
+              error.code = 'SAFARI_004'
+              error.message = 'Upload was cancelled or interrupted by Safari.'
+              return error
+            }
+          }
+          
+          // Timeout errors
+          if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+            const error = new Error('Safari upload timeout') as Error & { code?: string; message?: string }
+            error.code = 'SAFARI_005'
+            error.message = 'Upload timed out. File may be too large for Safari. Try a smaller image.'
+            return error
+          }
+          
+          // Memory/Blob errors
+          if (errorMessage.includes('memory') || errorMessage.includes('Blob') || errorMessage.includes('quota')) {
+            const error = new Error('Safari memory error - file too large') as Error & { code?: string; message?: string }
+            error.code = 'SAFARI_006'
+            error.message = 'Safari ran out of memory processing the image. Try a smaller or lower resolution image.'
+            return error
+          }
+          
+          // FormData errors
+          if (errorMessage.includes('FormData') || errorMessage.includes('multipart')) {
+            const error = new Error('Safari FormData error') as Error & { code?: string; message?: string }
+            error.code = 'SAFARI_007'
+            error.message = 'Safari failed to process the file. Try a different image format.'
+            return error
+          }
+          
+          // Generic Safari error
+          const error = new Error(`Safari upload error: ${errorMessage}`) as Error & { code?: string; message?: string }
+          error.code = 'SAFARI_008'
+          error.message = `Safari-specific error occurred: ${errorMessage}`
+          return error
         }
-      })
 
-      const uploadPromise = new Promise<{ url: string; filename: string }>((resolve, reject) => {
-        xhr.addEventListener('load', () => {
-          if (xhr.status === 200) {
+        const uploadPromise = fetch('/api/images/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include', // Important for Safari to send cookies
+          headers: {
+            // Don't set Content-Type - let browser set it with boundary for FormData
+          },
+        }).then(async (response) => {
+          if (!response.ok) {
+            let errorData: { error?: string; code?: string; message?: string } = {}
             try {
-              const data = JSON.parse(xhr.responseText) as { url: string; filename: string }
-              resolve(data)
-            } catch (err) {
-              const error = new Error('Failed to parse response') as Error & { code?: string }
-              error.code = 'CLIENT_005'
-              reject(error)
-            }
-          } else {
-            try {
-              const errorData = JSON.parse(xhr.responseText) as { error?: string; code?: string; message?: string }
-              const error = new Error(errorData.error || 'Upload failed') as Error & { code?: string; message?: string }
-              error.code = errorData.code || 'CLIENT_006'
-              error.message = errorData.message || error.message
-              reject(error)
+              errorData = await response.json()
             } catch {
-              const error = new Error('Upload failed') as Error & { code?: string }
-              error.code = 'CLIENT_006'
-              reject(error)
+              // If response isn't JSON, get text
+              const text = await response.text()
+              errorData = { error: text || `HTTP ${response.status}` }
             }
+            
+            // Check for specific HTTP status codes that indicate Safari issues
+            if (response.status === 401 || response.status === 403) {
+              const error = new Error(errorData.error || `Authentication failed (${response.status})`) as Error & { code?: string; message?: string }
+              error.code = 'SAFARI_002'
+              error.message = errorData.message || 'Safari failed to send authentication. Refresh the page and try again.'
+              throw error
+            }
+            
+            if (response.status === 0) {
+              // Status 0 usually means CORS or network error in Safari
+              const error = new Error('Safari CORS or network error') as Error & { code?: string; message?: string }
+              error.code = 'SAFARI_001'
+              error.message = 'Safari blocked the request. This may be a CORS issue. Try refreshing the page.'
+              throw error
+            }
+            
+            const error = new Error(errorData.error || `Upload failed (${response.status})`) as Error & { code?: string; message?: string }
+            error.code = errorData.code || 'CLIENT_006'
+            error.message = errorData.message || error.message
+            throw error
+          }
+          return response.json() as Promise<{ url: string; filename: string }>
+        }).catch((err) => {
+          // Use Safari-specific error detection
+          throw detectSafariError(err)
+        })
+
+        // Simulate progress for Safari (since fetch doesn't support upload progress)
+        setProgress(30)
+        notifyStateChange({ uploading: true, progress: 30, success: false })
+        
+        // Add timeout for Safari (60 seconds) with Safari-specific error
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            const error = new Error('Safari upload timeout - file may be too large') as Error & { code?: string; message?: string }
+            error.code = 'SAFARI_005'
+            error.message = 'Upload timed out in Safari. File may be too large. Try a smaller image.'
+            reject(error)
+          }, 60000)
+        })
+
+        const result = await Promise.race([uploadPromise, timeoutPromise])
+        const { url } = result
+      } else {
+        // Use XMLHttpRequest for other browsers (supports progress)
+        const xhr = new XMLHttpRequest()
+
+        // Upload via API route (which handles Worker upload and DB save)
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            // Map progress from 10-100% (since conversion takes first 10%)
+            const uploadProgress = (event.loaded / event.total) * 90
+            const totalProgress = 10 + uploadProgress
+            setProgress(totalProgress)
+            notifyStateChange({ uploading: true, progress: totalProgress, success: false })
           }
         })
 
-        xhr.addEventListener('error', () => {
-          const error = new Error('Network error') as Error & { code?: string }
-          error.code = 'CLIENT_007'
-          reject(error)
+        const uploadPromise = new Promise<{ url: string; filename: string }>((resolve, reject) => {
+          // Add timeout (60 seconds)
+          const timeout = setTimeout(() => {
+            xhr.abort()
+            const error = new Error('Upload timeout - file may be too large') as Error & { code?: string }
+            error.code = 'CLIENT_008'
+            reject(error)
+          }, 60000)
+
+          xhr.addEventListener('load', () => {
+            clearTimeout(timeout)
+            if (xhr.status === 200) {
+              try {
+                const data = JSON.parse(xhr.responseText) as { url: string; filename: string }
+                resolve(data)
+              } catch (err) {
+                const error = new Error('Failed to parse response') as Error & { code?: string }
+                error.code = 'CLIENT_005'
+                reject(error)
+              }
+            } else {
+              try {
+                const errorData = JSON.parse(xhr.responseText) as { error?: string; code?: string; message?: string }
+                const error = new Error(errorData.error || `Upload failed (${xhr.status})`) as Error & { code?: string; message?: string }
+                error.code = errorData.code || 'CLIENT_006'
+                error.message = errorData.message || error.message
+                reject(error)
+              } catch {
+                const error = new Error(`Upload failed (HTTP ${xhr.status})`) as Error & { code?: string }
+                error.code = 'CLIENT_006'
+                reject(error)
+              }
+            }
+          })
+
+          xhr.addEventListener('error', () => {
+            clearTimeout(timeout)
+            const error = new Error('Network error') as Error & { code?: string }
+            error.code = 'CLIENT_007'
+            reject(error)
+          })
+
+          xhr.addEventListener('abort', () => {
+            clearTimeout(timeout)
+            const error = new Error('Upload cancelled or timed out') as Error & { code?: string }
+            error.code = 'CLIENT_008'
+            reject(error)
+          })
+
+          xhr.open('POST', '/api/images/upload')
+          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest') // Help with CORS
+          xhr.send(formData)
         })
 
-        xhr.open('POST', '/api/images/upload')
-        xhr.send(formData)
-      })
+        const { url } = await uploadPromise
+      }
 
-      const { url } = await uploadPromise
+      // Both paths set url, now continue with success handling
 
       setProgress(100)
       setSuccess(true)

@@ -3,6 +3,10 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ensureUser, isUserApproved } from '@/app/utils/users'
 
+// Configure body size limit for this route (15MB to allow buffer above 10MB worker limit)
+export const maxDuration = 60 // 60 seconds timeout
+export const runtime = 'nodejs'
+
 const WORKER_URL = process.env.CLOUDFLARE_WORKER_URL
 
 if (!WORKER_URL) {
@@ -37,7 +41,30 @@ export async function POST(request: Request) {
       }, { status: 403 })
     }
 
-    const formData = await request.formData()
+    // Parse FormData with error handling for body size limits
+    let formData: FormData
+    try {
+      formData = await request.formData()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      // Check if it's a body size limit error
+      if (errorMessage.includes('body') && errorMessage.includes('exceeded') || 
+          errorMessage.includes('Failed to parse body as FormData') ||
+          errorMessage.includes('MB')) {
+        return NextResponse.json({ 
+          error: 'File too large for upload', 
+          code: 'UPLOAD_008',
+          message: 'File exceeds 100MB limit. Please use a smaller image.'
+        }, { status: 413 })
+      }
+      // Generic FormData parsing error
+      return NextResponse.json({ 
+        error: 'Failed to process upload request', 
+        code: 'UPLOAD_009',
+        message: `Request processing failed: ${errorMessage}`
+      }, { status: 400 })
+    }
+
     const file = formData.get('image') as File
     const providedFilename = formData.get('filename') as string | null
 
@@ -47,6 +74,16 @@ export async function POST(request: Request) {
         code: 'UPLOAD_003',
         message: 'No file provided in request'
       }, { status: 400 })
+    }
+
+    // Check file size before processing (100MB limit - will be compressed to WebP)
+    const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ 
+        error: 'File too large', 
+        code: 'UPLOAD_008',
+        message: 'File size exceeds 100MB limit. Please use a smaller image.'
+      }, { status: 413 })
     }
 
     // Detect file type (handle JPEG fallback from iOS)
