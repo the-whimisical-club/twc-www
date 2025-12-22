@@ -89,8 +89,8 @@ function applyOrientation(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext
 // Resolution constants
 const RES_1080P_WIDTH = 1920
 const RES_1080P_HEIGHT = 1080
-const RES_1440P_WIDTH = 2560
-const RES_1440P_HEIGHT = 1440
+const RES_4K_WIDTH = 3840
+const RES_4K_HEIGHT = 2160
 
 // Custom error for resolution rejection
 export class ResolutionError extends Error {
@@ -117,7 +117,7 @@ async function processImage(file: File): Promise<Blob> {
               return
             }
 
-            // Get EXIF orientation for iOS images
+            // Get EXIF orientation for iOS images (needed for accurate resolution check)
             const orientation = await getOrientation(file)
             
             // Get source dimensions
@@ -129,27 +129,49 @@ async function processImage(file: File): Promise<Blob> {
             let finalWidth = isRotated ? sourceHeight : sourceWidth
             let finalHeight = isRotated ? sourceWidth : sourceHeight
             
-            // Check if resolution is less than 1080p
+            // Step 1: If resolution < 1080p, reject
             if (finalWidth < RES_1080P_WIDTH && finalHeight < RES_1080P_HEIGHT) {
               reject(new ResolutionError())
               return
             }
             
+            // Check if image is already JPEG
+            const isAlreadyJpeg = file.type === 'image/jpeg' || file.type === 'image/jpg' || 
+                                   file.name.toLowerCase().endsWith('.jpg') || 
+                                   file.name.toLowerCase().endsWith('.jpeg')
+            
+            // Check if needs resizing (only if > 4K/2160p)
+            const needsResize = finalWidth > RES_4K_WIDTH || finalHeight > RES_4K_HEIGHT
+            
+            // Check if needs orientation fix
+            const needsOrientationFix = orientation !== 1 && orientation !== -1 && orientation !== -2
+            
+            // Step 2: If resolution > 2160p (4K), resize/compress (requires canvas)
+            // Step 3: If not JPEG, convert (requires canvas)
+            // Also need canvas if orientation needs fixing
+            const needsProcessing = needsResize || !isAlreadyJpeg || needsOrientationFix
+            
+            // If no processing needed, return original file
+            // This includes JPEGs between 1440p and 2160p (4K) - upload normally
+            if (!needsProcessing) {
+              resolve(file)
+              return
+            }
+            
+            // Process through canvas (for resizing, format conversion, or orientation fix)
             // Calculate target dimensions
             let targetWidth = sourceWidth
             let targetHeight = sourceHeight
             
-            // If resolution is greater than 1440p, resize down to 1440p (maintain aspect ratio)
-            if (finalWidth > RES_1440P_WIDTH || finalHeight > RES_1440P_HEIGHT) {
+            // If resolution is greater than 4K (2160p), resize down to 4K (maintain aspect ratio)
+            if (needsResize) {
               const scale = Math.min(
-                RES_1440P_WIDTH / finalWidth,
-                RES_1440P_HEIGHT / finalHeight
+                RES_4K_WIDTH / finalWidth,
+                RES_4K_HEIGHT / finalHeight
               )
               targetWidth = Math.round(sourceWidth * scale)
               targetHeight = Math.round(sourceHeight * scale)
             }
-            // If between 1080p and 1440p, keep original size (no resizing needed)
-            // Just convert to JPEG if not already
             
             // Set canvas dimensions (before orientation transform)
             canvas.width = targetWidth
@@ -163,63 +185,30 @@ async function processImage(file: File): Promise<Blob> {
             ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
             ctx.restore()
 
-            // Convert to JPEG with high quality (lossless conversion for between 1080p-1440p)
-            // Use 0.95 quality for high quality JPEG
-            // Some browsers may default to WebP even when JPEG is requested, so we use toDataURL as fallback
-            canvas.toBlob(
-              (blob) => {
-                if (blob) {
-                  // Check if blob is actually JPEG (some browsers may create WebP even when JPEG is requested)
-                  if (blob.type === 'image/jpeg' || blob.type === 'image/jpg') {
-                    resolve(blob)
-                  } else {
-                    // Fallback: use toDataURL to force JPEG format, then convert to blob
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
-                    const base64Data = dataUrl.split(',')[1]
-                    if (!base64Data) {
-                      const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
-                      error.code = 'CLIENT_001'
-                      reject(error)
-                      return
-                    }
-                    const byteString = atob(base64Data)
-                    const ab = new ArrayBuffer(byteString.length)
-                    const ia = new Uint8Array(ab)
-                    for (let i = 0; i < byteString.length; i++) {
-                      ia[i] = byteString.charCodeAt(i)
-                    }
-                    const jpegBlob = new Blob([ab], { type: 'image/jpeg' })
-                    resolve(jpegBlob)
-                  }
-                } else {
-                  // If toBlob fails, try toDataURL fallback
-                  try {
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
-                    const base64Data = dataUrl.split(',')[1]
-                    if (!base64Data) {
-                      const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
-                      error.code = 'CLIENT_001'
-                      reject(error)
-                      return
-                    }
-                    const byteString = atob(base64Data)
-                    const ab = new ArrayBuffer(byteString.length)
-                    const ia = new Uint8Array(ab)
-                    for (let i = 0; i < byteString.length; i++) {
-                      ia[i] = byteString.charCodeAt(i)
-                    }
-                    const jpegBlob = new Blob([ab], { type: 'image/jpeg' })
-                    resolve(jpegBlob)
-                  } catch (err) {
-                    const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
-                    error.code = 'CLIENT_001'
-                    reject(error)
-                  }
-                }
-              },
-              'image/jpeg',
-              0.95 // High quality JPEG
-            )
+            // Convert to JPEG with high quality (0.95 quality)
+            // Use toDataURL instead of toBlob to ensure JPEG format (some browsers default toBlob to WebP)
+            try {
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+              const base64Data = dataUrl.split(',')[1]
+              if (!base64Data) {
+                const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
+                error.code = 'CLIENT_001'
+                reject(error)
+                return
+              }
+              const byteString = atob(base64Data)
+              const ab = new ArrayBuffer(byteString.length)
+              const ia = new Uint8Array(ab)
+              for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i)
+              }
+              const jpegBlob = new Blob([ab], { type: 'image/jpeg' })
+              resolve(jpegBlob)
+            } catch (err) {
+              const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
+              error.code = 'CLIENT_001'
+              reject(error)
+            }
           } catch (err) {
             if (err instanceof ResolutionError) {
               reject(err)
