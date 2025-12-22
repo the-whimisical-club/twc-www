@@ -31,13 +31,42 @@ export async function POST(request: Request) {
 
     const formData = await request.formData()
     const file = formData.get('image') as File
-    const filename = formData.get('filename') as string
+    const providedFilename = formData.get('filename') as string | null
 
-    if (!file || !filename) {
-      return NextResponse.json({ error: 'File and filename are required' }, { status: 400 })
+    if (!file) {
+      return NextResponse.json({ error: 'File is required' }, { status: 400 })
     }
 
-    // Upload to Cloudflare Worker with custom filename
+    // Generate filename with folder structure: username/dd-mm-yyyy-random.webp
+    let filename: string
+    if (providedFilename && providedFilename.includes('/')) {
+      // Use provided filename if it already has folder structure
+      filename = providedFilename
+    } else {
+      // Generate filename server-side with folder structure
+      const now = new Date()
+      const dd = String(now.getDate()).padStart(2, '0')
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const yyyy = now.getFullYear()
+      
+      // Extract username from email (part before @)
+      const username = user.email!.split('@')[0] || user.email!
+      
+      // Sanitize username (remove special chars, keep alphanumeric, replace with dash)
+      const sanitizedUsername = username.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
+      
+      // Generate 10-character alphanumeric random sequence
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+      let randomSequence = ''
+      for (let i = 0; i < 10; i++) {
+        randomSequence += chars[Math.floor(Math.random() * chars.length)]
+      }
+      
+      // Format: username/dd-mm-yyyy-random.webp
+      filename = `${sanitizedUsername}/${dd}-${mm}-${yyyy}-${randomSequence}.webp`
+    }
+
+    // Upload to Cloudflare Worker with filename including folder structure
     const arrayBuffer = await file.arrayBuffer()
     const response = await fetch(`${WORKER_URL}/${filename}`, {
       method: 'PUT',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useRouter } from 'next/navigation'
 
 export interface ImageUploadFormHandle {
   triggerFileSelect: () => void
@@ -43,7 +44,8 @@ async function convertToWebP(file: File): Promise<Blob> {
   })
 }
 
-// Generate filename: dd-mm-yyyy-user-10digitrandom.webp
+// Note: Filename generation is now handled server-side to include folder structure
+// This function is kept for backward compatibility but won't be used
 function generateFilename(originalFile: File, email: string): string {
   const now = new Date()
   const dd = String(now.getDate()).padStart(2, '0')
@@ -77,13 +79,13 @@ function generateFilename(originalFile: File, email: string): string {
   
   const randomSequence = generateRandomSequence()
   
-  // Return format: dd-mm-yyyy-user-10digitrandom.webp
-  return `${dd}-${mm}-${yyyy}-${sanitizedUsername}-${randomSequence}.webp`
+  // Return format: username/dd-mm-yyyy-filename.webp (with folder structure)
+  return `${sanitizedUsername}/${dd}-${mm}-${yyyy}-${randomSequence}.webp`
 }
 
 interface ImageUploadFormProps {
   onStateChange?: (state: { uploading: boolean; progress: number; success: boolean }) => void
-  username?: string
+  username?: string // Optional, server will generate filename if not provided
 }
 
 const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>((props, ref) => {
@@ -92,6 +94,7 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
   const [success, setSuccess] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   useImperativeHandle(ref, () => ({
     triggerFileSelect: () => {
@@ -108,11 +111,6 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!props.username) {
-      setMessage({ type: 'error', text: 'User information not available' })
-      return
-    }
-
     const resetState = () => {
       setUploading(true)
       setProgress(0)
@@ -128,8 +126,11 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       notifyStateChange({ uploading: true, progress: 5, success: false })
       const webpBlob = await convertToWebP(file)
       
-      // Generate filename
-      const filename = generateFilename(file, props.username)
+      // Generate filename (server will regenerate with folder structure if username provided)
+      // If username is not provided, server will generate filename from user session
+      const filename = props.username 
+        ? generateFilename(file, props.username)
+        : `temp-${Date.now()}.webp` // Temporary filename, server will replace it
       
       setProgress(10)
       notifyStateChange({ uploading: true, progress: 10, success: false })
@@ -138,7 +139,10 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       const xhr = new XMLHttpRequest()
       const formData = new FormData()
       formData.append('image', webpBlob, filename)
-      formData.append('filename', filename)
+      // Only send filename if we have username, otherwise let server generate it
+      if (props.username) {
+        formData.append('filename', filename)
+      }
 
       // Upload via API route (which handles Worker upload and DB save)
       xhr.upload.addEventListener('progress', (event) => {
@@ -185,17 +189,15 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       notifyStateChange({ uploading: false, progress: 100, success: true })
       setMessage({ type: 'success', text: 'Image uploaded successfully!' })
 
-      // Reset after 2 seconds
-      setTimeout(() => {
-        setSuccess(false)
-        setProgress(0)
-        notifyStateChange({ uploading: false, progress: 0, success: false })
-      }, 2000)
-
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+
+      // Redirect to feed after a short delay
+      setTimeout(() => {
+        router.push('/feed')
+      }, 1000)
     } catch (err) {
       setUploading(false)
       setProgress(0)
@@ -222,10 +224,10 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       />
       {message && (
         <div
-          className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 p-3 rounded z-50 ${
+          className={`fixed top-4 left-1/2 transform -translate-x-1/2 p-3 rounded z-50 ${
             message.type === 'success'
-              ? 'bg-green-500/20 text-green-500'
-              : 'bg-red-500/20 text-red-500'
+              ? 'bg-green-500 text-white'
+              : 'bg-red-500 text-white'
           }`}
         >
           {message.text}
