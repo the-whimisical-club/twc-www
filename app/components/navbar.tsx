@@ -37,12 +37,18 @@ function UploadButton({
     <button
       onClick={onClick}
       disabled={uploading}
-      className="relative w-12 h-12 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+      className={`relative w-12 h-12 rounded-full hover:opacity-80 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center ${
+        success 
+          ? 'bg-green-500 text-white' 
+          : 'bg-foreground text-background'
+      }`}
       aria-label="Upload"
     >
       {uploading || success ? (
         <svg
-          className="transform -rotate-90 absolute inset-0 text-background"
+          className={`transform -rotate-90 absolute inset-0 ${
+            success ? 'text-white' : 'text-background'
+          }`}
           width="48"
           height="48"
           viewBox="0 0 48 48"
@@ -76,7 +82,7 @@ function UploadButton({
       ) : null}
       <div className="absolute inset-0 flex items-center justify-center">
         {success ? (
-          <Check size={24} className="text-background" />
+          <Check size={24} className="text-white" />
         ) : (
           <Upload size={24} className="text-background" />
         )}
