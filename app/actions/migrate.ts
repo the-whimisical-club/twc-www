@@ -143,6 +143,24 @@ export async function approveUsers(emails: string[]): Promise<{ success: boolean
       return { success: false, error: 'Failed to fetch auth users' }
     }
     
+    // Check which users are already approved (use service client to bypass RLS)
+    const { data: existingUsers, error: existingError } = await serviceClient
+      .from('users')
+      .select('email')
+      .in('email', emails)
+
+    if (existingError) {
+      console.error('Error checking existing users:', existingError)
+      return { success: false, error: 'Failed to check existing users' }
+    }
+
+    const existingEmails = new Set(existingUsers?.map(u => u.email) || [])
+    const emailsToApprove = emails.filter(email => !existingEmails.has(email))
+
+    if (emailsToApprove.length === 0) {
+      return { success: false, error: 'All selected users are already approved' }
+    }
+
     const usersToInsert: Array<{
       auth_user_id: string
       email: string
@@ -150,7 +168,7 @@ export async function approveUsers(emails: string[]): Promise<{ success: boolean
       display_name: string
     }> = []
 
-    for (const email of emails) {
+    for (const email of emailsToApprove) {
       const authUser = authUsersData?.users.find(u => u.email === email)
       if (authUser) {
         const username = email.split('@')[0] || email
@@ -167,14 +185,38 @@ export async function approveUsers(emails: string[]): Promise<{ success: boolean
       return { success: false, error: 'No valid users found to approve' }
     }
 
-    // Insert users into users table
-    const { error: insertError } = await supabase
+    // Insert users into users table (use service client to bypass RLS)
+    const { error: insertError, data } = await serviceClient
       .from('users')
       .insert(usersToInsert)
+      .select()
 
     if (insertError) {
       console.error('Error inserting users:', insertError)
-      return { success: false, error: 'Failed to approve users' }
+      // Provide more detailed error message
+      let errorMessage = 'Failed to approve users'
+      if (insertError.code === '23505') {
+        errorMessage = 'One or more users are already approved (duplicate entry)'
+      } else if (insertError.code === '23503') {
+        errorMessage = 'Invalid reference: one or more users have invalid auth_user_id'
+      } else if (insertError.message) {
+        errorMessage = `Database error: ${insertError.message}`
+      }
+      return { success: false, error: errorMessage }
+    }
+
+    // Remove approved users from waiting_approval table (use service client to bypass RLS)
+    if (emailsToApprove.length > 0) {
+      const { error: deleteError } = await serviceClient
+        .from('waiting_approval')
+        .delete()
+        .in('email', emailsToApprove)
+
+      if (deleteError) {
+        console.error('Error removing users from waiting_approval:', deleteError)
+        // Don't fail the whole operation if cleanup fails
+        // Users are already approved, this is just cleanup
+      }
     }
 
     return { success: true }

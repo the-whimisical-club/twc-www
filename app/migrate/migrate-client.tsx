@@ -48,14 +48,17 @@ export default function MigrateClient({ initialUsers }: MigrateClientProps) {
       
       if (result.error) {
         setError(result.error)
-      } else {
+      } else if (result.success) {
         setSuccess(true)
         // Refresh the page after a short delay to show updated list
         setTimeout(() => {
           router.refresh()
         }, 1000)
+      } else {
+        setError('Unknown error occurred while approving users')
       }
     } catch (err) {
+      console.error('Error approving users:', err)
       setError(err instanceof Error ? err.message : 'Failed to approve users')
     } finally {
       setIsSubmitting(false)
