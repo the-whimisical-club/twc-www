@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 export interface ImageUploadFormHandle {
@@ -30,6 +30,22 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
   const notifyStateChange = (state: { uploading: boolean; progress: number; success: boolean }) => {
     props.onStateChange?.(state)
   }
+
+  // Auto-dismiss toast after 3 seconds and reset upload state
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null)
+        // Reset upload state to normal after toast disappears
+        setUploading(false)
+        setProgress(0)
+        setSuccess(false)
+        notifyStateChange({ uploading: false, progress: 0, success: false })
+      }, 3000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [message])
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -127,10 +143,10 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         fileInputRef.current.value = ''
       }
 
-      // Redirect to feed after a short delay
+      // Redirect to feed after toast disappears (3 seconds)
       setTimeout(() => {
         router.push('/feed')
-      }, 1000)
+      }, 3000)
     } catch (err) {
       setUploading(false)
       setProgress(0)
