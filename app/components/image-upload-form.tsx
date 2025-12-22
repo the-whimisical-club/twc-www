@@ -136,17 +136,17 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       setProgress(100)
       setSuccess(true)
       notifyStateChange({ uploading: false, progress: 100, success: true })
-      setMessage({ type: 'success', text: 'Image uploaded successfully!' })
+      // No success toast - the tick symbol on the button is sufficient feedback
 
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
 
-      // Redirect to feed after toast disappears (3 seconds)
+      // Redirect to feed after showing success tick (1 second)
       setTimeout(() => {
         router.push('/feed')
-      }, 3000)
+      }, 1000)
     } catch (err) {
       setUploading(false)
       setProgress(0)
