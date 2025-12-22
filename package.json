@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "generate-test-image": "bun run scripts/generate-test-image.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251220.0",
@@ -13,7 +14,6 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "postcss": "^8.5.6",
-    "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
     "to-ico": "^1.1.5"
   },
@@ -28,6 +28,7 @@
     "next": "^16.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "sharp": "^0.34.5",
     "supabase": "^2.67.3"
   }
 }

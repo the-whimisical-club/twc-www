@@ -2,6 +2,8 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ensureUser, isUserApproved } from '@/app/utils/users'
+import { spawn } from 'child_process'
+import { join } from 'path'
 
 // Configure body size limit for this route (15MB to allow buffer above 10MB worker limit)
 export const maxDuration = 60 // 60 seconds timeout
@@ -85,7 +87,100 @@ export async function POST(request: Request) {
       }, { status: 413 })
     }
 
-    // All files should be JPEG now (client converts everything to JPEG)
+    // Process image with Python script (simple and reliable)
+    let processedImageBuffer: Buffer
+    try {
+      const imageBuffer = Buffer.from(await file.arrayBuffer())
+      const scriptPath = join(process.cwd(), 'scripts', 'process_image.py')
+      const venvPython = join(process.cwd(), 'venv', 'bin', 'python3')
+      
+      // Run Python script with image data as stdin (use venv Python)
+      const processed = await new Promise<{ stdout: Buffer; stderr: string }>((resolve, reject) => {
+        const python = spawn(venvPython, [scriptPath])
+        const stdoutChunks: Buffer[] = []
+        const stderrChunks: string[] = []
+        
+        python.stdout.on('data', (chunk: Buffer) => {
+          stdoutChunks.push(chunk)
+        })
+        
+        python.stderr.on('data', (chunk: Buffer) => {
+          stderrChunks.push(chunk.toString())
+        })
+        
+        python.on('close', (code) => {
+          const stderr = stderrChunks.join('')
+          if (code !== 0) {
+            if (stderr.includes('RESOLUTION_TOO_LOW')) {
+              reject(new Error('RESOLUTION_TOO_LOW'))
+            } else {
+              reject(new Error(`Python script failed with code ${code}: ${stderr}`))
+            }
+            return
+          }
+          resolve({
+            stdout: Buffer.concat(stdoutChunks),
+            stderr
+          })
+        })
+        
+        python.on('error', (err) => {
+          reject(new Error(`Failed to spawn Python: ${err.message}`))
+        })
+        
+        // Write image buffer to stdin
+        python.stdin.write(imageBuffer)
+        python.stdin.end()
+      })
+      
+      processedImageBuffer = processed.stdout
+      
+      // Log what we got from Python
+      const firstBytes = Array.from(processedImageBuffer.slice(0, 12))
+        .map(b => '0x' + b.toString(16).padStart(2, '0'))
+        .join(' ')
+      const isJpeg = processedImageBuffer[0] === 0xFF && processedImageBuffer[1] === 0xD8
+      const isWebP = processedImageBuffer[0] === 0x52 && 
+                     processedImageBuffer[1] === 0x49 && 
+                     processedImageBuffer[2] === 0x46 && 
+                     processedImageBuffer[3] === 0x46
+      
+      console.log('Python script output:', {
+        size: processedImageBuffer.length,
+        firstBytes,
+        isJpeg,
+        isWebP,
+        format: isJpeg ? 'JPEG' : isWebP ? 'WEBP' : 'UNKNOWN'
+      })
+      
+      // Verify it's actually JPEG
+      if (!isJpeg) {
+        if (isWebP) {
+          throw new Error('Python script output WebP instead of JPEG! This should not happen.')
+        }
+        throw new Error(`Python script did not output valid JPEG. First bytes: ${firstBytes}`)
+      }
+    } catch (err) {
+      console.error('Image processing error:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Image processing failed'
+      
+      // Check if it's a resolution error
+      if (errorMessage.includes('RESOLUTION_TOO_LOW')) {
+        return NextResponse.json({ 
+          error: 'Resolution too low', 
+          code: 'UPLOAD_010',
+          message: 'Image resolution must be at least 1080p'
+        }, { status: 400 })
+      }
+      
+      return NextResponse.json({ 
+        error: 'Failed to process image', 
+        code: 'UPLOAD_011',
+        message: errorMessage
+      }, { status: 400 })
+    }
+
+    // All processed images are JPEG
     const extension = '.jpg'
     const contentType = 'image/jpeg'
 
@@ -114,7 +209,21 @@ export async function POST(request: Request) {
     // Upload to Cloudflare Worker with filename including folder structure
     // Encode each path segment separately to preserve folder structure
     const encodedFilename = filename.split('/').map(segment => encodeURIComponent(segment)).join('/')
-    const arrayBuffer = await file.arrayBuffer()
+    
+    // Verify buffer before sending
+    const bufferToSend = new Uint8Array(processedImageBuffer)
+    const verifyBytes = Array.from(bufferToSend.slice(0, 4))
+      .map(b => '0x' + b.toString(16).padStart(2, '0'))
+      .join(' ')
+    const isJpegBeforeSend = bufferToSend[0] === 0xFF && bufferToSend[1] === 0xD8
+    
+    console.log('Sending to worker:', {
+      filename,
+      bufferSize: bufferToSend.length,
+      firstBytes: verifyBytes,
+      isJpeg: isJpegBeforeSend,
+      contentType
+    })
     
     const workerUrl = `${WORKER_URL}/${encodedFilename}`
     const response = await fetch(workerUrl, {
@@ -122,7 +231,7 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': contentType,
       },
-      body: arrayBuffer,
+      body: bufferToSend,
     })
 
     if (!response.ok) {

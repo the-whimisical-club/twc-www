@@ -1,12 +1,37 @@
 # twc-www
 
-To install dependencies:
+## Installation
+
+### Node.js Dependencies
 
 ```bash
 bun install
 ```
 
-To run:
+### Python Dependencies
+
+Image processing is handled by a Python script. Set up a virtual environment and install dependencies:
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+Or install Pillow directly:
+
+```bash
+pip install Pillow
+```
+
+**Note**: The virtual environment is automatically used by the server. You don't need to activate it manually when running the app.
+
+## Running
 
 ```bash
 bun run dev
@@ -26,6 +51,22 @@ This will:
 - Add a `user_id` foreign key column to the `images` table
 - Set up Row Level Security policies
 - Create necessary indexes
+
+## Image Processing
+
+Image processing is handled server-side by a Python script (`scripts/process_image.py`) using Pillow:
+
+- **Resolution check**: Images must be at least 1080p (1920x1080)
+- **Auto-rotation**: Handles EXIF orientation (fixes iOS image rotation)
+- **Resizing**: Images larger than 4K (3840x2160) are resized down to 4K
+- **Format conversion**: All images are converted to JPEG format
+
+The Python script:
+- Reads image data from stdin
+- Processes the image
+- Outputs JPEG to stdout
+
+All processing logic is in Python - the client just uploads the original file.
 
 ## Environment Variables
 

@@ -185,11 +185,73 @@ export default {
           );
         }
 
-        // Upload to R2 (always use image/jpeg content type)
+        // Verify it's actually JPEG (check magic bytes: FF D8)
+        const bytes = new Uint8Array(body);
+        const isJpeg = bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xD8;
+        const isWebP = bytes.length >= 12 && 
+                       bytes[0] === 0x52 && bytes[1] === 0x49 && 
+                       bytes[2] === 0x46 && bytes[3] === 0x46 &&
+                       bytes[8] === 0x57 && bytes[9] === 0x45 && 
+                       bytes[10] === 0x42 && bytes[11] === 0x50;
+        
+        // Log what we received
+        console.log('Worker received file:', {
+          filename,
+          contentType: contentTypeHeader,
+          bodySize: body.byteLength,
+          firstBytes: Array.from(bytes.slice(0, 12)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '),
+          isJpeg,
+          isWebP
+        });
+        
+        if (!isJpeg) {
+          console.error('Worker received non-JPEG file!', {
+            filename,
+            contentType: contentTypeHeader,
+            firstBytes: Array.from(bytes.slice(0, 12)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '),
+            isJpeg,
+            isWebP
+          });
+          
+          if (isWebP) {
+            return new Response(
+              JSON.stringify({ 
+                error: 'Received WebP file instead of JPEG',
+                code: 'WORKER_004',
+                message: 'Server sent WebP format instead of JPEG'
+              }),
+              { 
+                status: 400,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*',
+                },
+              }
+            );
+          }
+        }
+
+        // FORCE filename to .jpg (remove any other extension)
+        if (!filename.endsWith('.jpg') && !filename.endsWith('.jpeg')) {
+          filename = filename.replace(/\.[^.]+$/, '') + '.jpg';
+        }
+        
+        // Upload to R2 (EXPLICITLY set image/jpeg content type and custom metadata)
         await env.BUCKET.put(filename, body, {
           httpMetadata: {
             contentType: 'image/jpeg',
+            cacheControl: 'public, max-age=31536000, immutable',
           },
+          customMetadata: {
+            format: 'jpeg',
+            processed: 'true'
+          }
+        });
+        
+        console.log('Stored in R2:', {
+          filename,
+          contentType: 'image/jpeg',
+          size: body.byteLength
         });
 
         // Return public URL
