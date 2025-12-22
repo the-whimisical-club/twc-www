@@ -165,14 +165,56 @@ async function processImage(file: File): Promise<Blob> {
 
             // Convert to JPEG with high quality (lossless conversion for between 1080p-1440p)
             // Use 0.95 quality for high quality JPEG
+            // Some browsers may default to WebP even when JPEG is requested, so we use toDataURL as fallback
             canvas.toBlob(
-              (jpegBlob) => {
-                if (jpegBlob) {
-                  resolve(jpegBlob)
+              (blob) => {
+                if (blob) {
+                  // Check if blob is actually JPEG (some browsers may create WebP even when JPEG is requested)
+                  if (blob.type === 'image/jpeg' || blob.type === 'image/jpg') {
+                    resolve(blob)
+                  } else {
+                    // Fallback: use toDataURL to force JPEG format, then convert to blob
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+                    const base64Data = dataUrl.split(',')[1]
+                    if (!base64Data) {
+                      const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
+                      error.code = 'CLIENT_001'
+                      reject(error)
+                      return
+                    }
+                    const byteString = atob(base64Data)
+                    const ab = new ArrayBuffer(byteString.length)
+                    const ia = new Uint8Array(ab)
+                    for (let i = 0; i < byteString.length; i++) {
+                      ia[i] = byteString.charCodeAt(i)
+                    }
+                    const jpegBlob = new Blob([ab], { type: 'image/jpeg' })
+                    resolve(jpegBlob)
+                  }
                 } else {
-                  const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
-                  error.code = 'CLIENT_001'
-                  reject(error)
+                  // If toBlob fails, try toDataURL fallback
+                  try {
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+                    const base64Data = dataUrl.split(',')[1]
+                    if (!base64Data) {
+                      const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
+                      error.code = 'CLIENT_001'
+                      reject(error)
+                      return
+                    }
+                    const byteString = atob(base64Data)
+                    const ab = new ArrayBuffer(byteString.length)
+                    const ia = new Uint8Array(ab)
+                    for (let i = 0; i < byteString.length; i++) {
+                      ia[i] = byteString.charCodeAt(i)
+                    }
+                    const jpegBlob = new Blob([ab], { type: 'image/jpeg' })
+                    resolve(jpegBlob)
+                  } catch (err) {
+                    const error = new Error('Failed to convert image to JPEG. Please try a different image.') as Error & { code?: string }
+                    error.code = 'CLIENT_001'
+                    reject(error)
+                  }
                 }
               },
               'image/jpeg',
