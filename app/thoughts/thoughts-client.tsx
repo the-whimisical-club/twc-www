@@ -116,7 +116,7 @@ export default function ThoughtsClient({ initialThoughts }: { initialThoughts: T
                 key={thought.id}
                 className="p-6 bg-background border border-foreground/20 rounded-lg"
               >
-                <div className="text-foreground font-stack-sans-notch text-lg whitespace-pre-wrap break-words mb-4">
+                <div className="text-foreground font-stack-sans-notch text-lg whitespace-pre-wrap wrap-break-word mb-4">
                   {thought.content}
                 </div>
                 <div className="text-foreground-50 font-stack-sans-notch text-sm">
