@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ensureUser, isUserApproved } from '@/app/utils/users'
+import { createErrorResponse } from '@/app/utils/errors'
 import sharp from 'sharp'
 
 // Configure body size limit for this route (15MB to allow buffer above 10MB worker limit)
@@ -50,21 +51,15 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (!user || !user.email) {
-      return jsonResponse({ 
-        error: 'Unauthorized', 
-        code: 'UPLOAD_001',
-        message: 'User authentication required'
-      }, 401)
+      const errorResponse = createErrorResponse('AUTH-SESSION-001')
+      return jsonResponse(errorResponse, errorResponse.httpStatus || 401)
     }
 
     // Check if user is approved (exists in users table)
     const approved = await isUserApproved(user.id)
     if (!approved) {
-      return jsonResponse({ 
-        error: 'User not approved', 
-        code: 'UPLOAD_002',
-        message: 'User account is pending approval'
-      }, 403)
+      const errorResponse = createErrorResponse('AUTH-USER-001')
+      return jsonResponse(errorResponse, errorResponse.httpStatus || 403)
     }
 
     // Parse FormData with error handling for body size limits
@@ -77,38 +72,32 @@ export async function POST(request: Request) {
       if (errorMessage.includes('body') && errorMessage.includes('exceeded') || 
           errorMessage.includes('Failed to parse body as FormData') ||
           errorMessage.includes('MB')) {
-        return jsonResponse({ 
-          error: 'File too large for upload', 
-          code: 'UPLOAD_008',
-          message: 'File exceeds 100MB limit. Please use a smaller image.'
-        }, 413)
+        const errorResponse = createErrorResponse('UPLOAD-FILE-002', {
+          details: errorMessage
+        })
+        return jsonResponse(errorResponse, errorResponse.httpStatus || 413)
       }
       // Generic FormData parsing error
-      return jsonResponse({ 
-        error: 'Failed to process upload request', 
-        code: 'UPLOAD_009',
-        message: `Request processing failed: ${errorMessage}`
-      }, 400)
+      const errorResponse = createErrorResponse('UPLOAD-REQUEST-001', {
+        details: errorMessage
+      })
+      return jsonResponse(errorResponse, errorResponse.httpStatus || 400)
     }
 
     const file = formData.get('image') as File
 
     if (!file) {
-      return jsonResponse({ 
-        error: 'File is required', 
-        code: 'UPLOAD_003',
-        message: 'No file provided in request'
-      }, 400)
+      const errorResponse = createErrorResponse('UPLOAD-FILE-001')
+      return jsonResponse(errorResponse, errorResponse.httpStatus || 400)
     }
 
     // Check file size before processing (100MB limit)
     const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
     if (file.size > MAX_FILE_SIZE) {
-      return jsonResponse({ 
-        error: 'File too large', 
-        code: 'UPLOAD_008',
-        message: 'File size exceeds 100MB limit. Please use a smaller image.'
-      }, 413)
+      const errorResponse = createErrorResponse('UPLOAD-FILE-002', {
+        details: `File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`
+      })
+      return jsonResponse(errorResponse, errorResponse.httpStatus || 413)
     }
 
     // Process image with Sharp (works in serverless environments like Vercel)
@@ -140,11 +129,10 @@ export async function POST(request: Request) {
       
       // Check if resolution is less than 1080p
       if (width < RES_1080P_WIDTH && height < RES_1080P_HEIGHT) {
-        return jsonResponse({ 
-          error: 'Resolution too low', 
-          code: 'UPLOAD_010',
-          message: 'Image resolution must be at least 1080p'
-        }, 400)
+        const errorResponse = createErrorResponse('IMAGE-RESOLUTION-001', {
+          details: `Current resolution: ${width}x${height}, minimum required: ${RES_1080P_WIDTH}x${RES_1080P_HEIGHT}`
+        })
+        return jsonResponse(errorResponse, errorResponse.httpStatus || 400)
       }
       
       // Check if needs resizing (only if > 4K/2160p)
@@ -213,18 +201,17 @@ export async function POST(request: Request) {
       
       // Check if it's a resolution error (shouldn't happen here, but just in case)
       if (errorMessage.includes('Resolution too low') || errorMessage.includes('RESOLUTION_TOO_LOW')) {
-        return jsonResponse({ 
-          error: 'Resolution too low', 
-          code: 'UPLOAD_010',
-          message: 'Image resolution must be at least 1080p'
-        }, 400)
+        const errorResponse = createErrorResponse('IMAGE-RESOLUTION-001', {
+          details: errorMessage
+        })
+        return jsonResponse(errorResponse, errorResponse.httpStatus || 400)
       }
       
-      return jsonResponse({ 
-        error: 'Failed to process image', 
-        code: 'UPLOAD_011',
-        message: errorMessage
-      }, 400)
+      const errorResponse = createErrorResponse('UPLOAD-PROCESS-001', {
+        details: errorMessage,
+        cause: err
+      })
+      return jsonResponse(errorResponse, errorResponse.httpStatus || 400)
     }
 
     // All processed images are JPEG
@@ -282,14 +269,10 @@ export async function POST(request: Request) {
     })
 
     if (!response.ok) {
-      let errorMessage = 'Failed to upload image'
-      let errorCode = 'UPLOAD_004'
       let errorDetails = ''
       try {
         const errorData = await response.json() as { error?: string; code?: string; message?: string }
-        errorMessage = errorData.error || errorMessage
-        errorCode = errorData.code || errorCode
-        errorDetails = errorData.message || ''
+        errorDetails = errorData.message || errorData.error || ''
       } catch {
         // If response isn't JSON, get text
         try {
@@ -301,18 +284,15 @@ export async function POST(request: Request) {
       }
       console.error('Worker upload failed:', {
         status: response.status,
-        code: errorCode,
-        message: errorMessage,
         details: errorDetails,
         filename,
         contentType,
         fileSize: file.size
       })
-      return jsonResponse({ 
-        error: errorMessage,
-        code: errorCode,
-        message: errorDetails || 'Cloudflare Worker upload failed'
-      }, response.status >= 400 && response.status < 500 ? response.status : 400)
+      const errorResponse = createErrorResponse('UPLOAD-STORAGE-001', {
+        details: errorDetails || `Storage service returned status ${response.status}`
+      })
+      return jsonResponse(errorResponse, response.status >= 400 && response.status < 500 ? response.status : errorResponse.httpStatus || 500)
     }
 
     // Worker returns JSON with url and filename
@@ -323,11 +303,8 @@ export async function POST(request: Request) {
     const userRecord = await ensureUser(user.id, user.email)
     
     if (!userRecord) {
-      return jsonResponse({ 
-        error: 'Failed to create user record', 
-        code: 'UPLOAD_005',
-        message: 'Could not create or retrieve user record in database'
-      }, 500)
+      const errorResponse = createErrorResponse('UPLOAD-DB-002')
+      return jsonResponse(errorResponse, errorResponse.httpStatus || 500)
     }
 
     // Save URL to database with user_id
@@ -337,25 +314,22 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error('Database error:', dbError)
-      return jsonResponse({ 
-        error: 'Failed to save image URL', 
-        code: 'UPLOAD_006',
-        message: 'Database insert failed',
-        details: dbError.message
-      }, 500)
+      const errorResponse = createErrorResponse('UPLOAD-DB-001', {
+        details: dbError.message,
+        cause: dbError
+      })
+      return jsonResponse(errorResponse, errorResponse.httpStatus || 500)
     }
 
     return jsonResponse({ success: true, url: publicUrl, filename })
   } catch (err) {
     console.error('Upload error:', err)
-    return jsonResponse(
-      { 
-        error: err instanceof Error ? err.message : 'Failed to upload image',
-        code: 'UPLOAD_007',
-        message: 'Unexpected server error occurred'
-      },
-      500
-    )
+    const errorMessage = err instanceof Error ? err.message : 'Failed to upload image'
+    const errorResponse = createErrorResponse('UPLOAD-SERVER-001', {
+      details: errorMessage,
+      cause: err
+    })
+    return jsonResponse(errorResponse, errorResponse.httpStatus || 500)
   }
 }
 

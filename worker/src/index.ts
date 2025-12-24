@@ -115,7 +115,7 @@ export default {
         return new Response(
           JSON.stringify({ 
             error: `Invalid content type: ${contentType}. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`,
-            code: 'WORKER_001',
+            code: 'STORAGE-CONTENT-001',
             message: 'File type not supported'
           }),
           { 
@@ -172,11 +172,11 @@ export default {
           return new Response(
             JSON.stringify({ 
               error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB (original file, will be compressed)`,
-              code: 'WORKER_002',
+              code: 'STORAGE-SIZE-001',
               message: 'File size exceeds maximum limit'
             }),
             { 
-              status: 400,
+              status: 413,
               headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
@@ -217,7 +217,7 @@ export default {
             return new Response(
               JSON.stringify({ 
                 error: 'Received WebP file instead of JPEG',
-                code: 'WORKER_004',
+                code: 'STORAGE-CONTENT-001',
                 message: 'Server sent WebP format instead of JPEG'
               }),
               { 
@@ -275,7 +275,7 @@ export default {
         return new Response(
           JSON.stringify({ 
             error: 'Failed to upload image',
-            code: 'WORKER_003',
+            code: 'STORAGE-UPLOAD-001',
             message: 'R2 storage upload failed'
           }),
           { 

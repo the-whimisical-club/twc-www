@@ -2,6 +2,7 @@
 
 import { useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createError } from '@/app/utils/errors'
 
 export interface ImageUploadFormHandle {
   triggerFileSelect: () => void
@@ -80,8 +81,9 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         // Add timeout (60 seconds)
         const timeout = setTimeout(() => {
           xhr.abort()
-          const error = new Error('Upload timeout - file may be too large') as Error & { code?: string }
-          error.code = 'CLIENT_008'
+          const appError = createError('CLIENT-TIMEOUT-001')
+          const error = new Error(appError.message) as Error & { code?: string }
+          error.code = appError.code
           reject(error)
         }, 60000)
 
@@ -92,8 +94,11 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
               const data = JSON.parse(xhr.responseText) as { url: string; filename: string }
               resolve(data)
             } catch (err) {
-              const error = new Error('Failed to parse response') as Error & { code?: string }
-              error.code = 'CLIENT_005'
+              const appError = createError('CLIENT-PARSE-001', {
+                cause: err
+              })
+              const error = new Error(appError.message) as Error & { code?: string }
+              error.code = appError.code
               reject(error)
             }
           } else {
@@ -108,17 +113,30 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
             
             try {
               const errorData = JSON.parse(xhr.responseText) as { error?: string; code?: string; message?: string }
-              const error = new Error(errorData.error || `Upload failed (${xhr.status})`) as Error & { code?: string; message?: string }
-              error.code = errorData.code || 'CLIENT_006'
-              error.message = errorData.message || error.message
+              // Use server-provided error code if it follows our pattern, otherwise default to CLIENT-REQUEST-001
+              const isValidCode = errorData.code && (
+                errorData.code.startsWith('AUTH-') ||
+                errorData.code.startsWith('UPLOAD-') ||
+                errorData.code.startsWith('IMAGE-') ||
+                errorData.code.startsWith('STORAGE-') ||
+                errorData.code.startsWith('CLIENT-')
+              )
+              const errorCode = isValidCode ? errorData.code! : 'CLIENT-REQUEST-001'
+              const appError = createError(errorCode, {
+                message: errorData.message || errorData.error || `Upload failed (${xhr.status})`,
+                details: errorData.message || errorData.error
+              })
+              const error = new Error(appError.message) as Error & { code?: string }
+              error.code = appError.code
               reject(error)
             } catch (parseErr) {
               // Response is not JSON - provide more helpful error message
               const responsePreview = xhr.responseText?.substring(0, 200) || 'No response body'
-              const error = new Error(
-                `Upload failed (HTTP ${xhr.status}${xhr.statusText ? `: ${xhr.statusText}` : ''}). ${responsePreview}`
-              ) as Error & { code?: string }
-              error.code = 'CLIENT_006'
+              const appError = createError('CLIENT-REQUEST-001', {
+                details: `HTTP ${xhr.status}${xhr.statusText ? `: ${xhr.statusText}` : ''}. ${responsePreview}`
+              })
+              const error = new Error(appError.message) as Error & { code?: string }
+              error.code = appError.code
               reject(error)
             }
           }
@@ -134,15 +152,21 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
             responseText: xhr.responseText?.substring(0, 200),
             event: event
           })
-          const error = new Error('Network error - check your connection and try again') as Error & { code?: string }
-          error.code = 'CLIENT_007'
+          const appError = createError('CLIENT-NETWORK-001', {
+            cause: event
+          })
+          const error = new Error(appError.message) as Error & { code?: string }
+          error.code = appError.code
           reject(error)
         })
 
         xhr.addEventListener('abort', () => {
           clearTimeout(timeout)
-          const error = new Error('Upload cancelled or timed out') as Error & { code?: string }
-          error.code = 'CLIENT_008'
+          const appError = createError('CLIENT-TIMEOUT-001', {
+            message: 'Upload cancelled or timed out'
+          })
+          const error = new Error(appError.message) as Error & { code?: string }
+          error.code = appError.code
           reject(error)
         })
 
@@ -155,8 +179,9 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         
         xhr.addEventListener('timeout', () => {
           clearTimeout(timeout)
-          const error = new Error('Upload timeout - file may be too large or connection too slow') as Error & { code?: string }
-          error.code = 'CLIENT_008'
+          const appError = createError('CLIENT-TIMEOUT-001')
+          const error = new Error(appError.message) as Error & { code?: string }
+          error.code = appError.code
           reject(error)
         })
         
@@ -197,7 +222,7 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload image'
       
       // Handle resolution error - redirect to /bruh
-      if (errorCode === 'UPLOAD_010' || errorMessage.includes('Resolution too low')) {
+      if (errorCode === 'IMAGE-RESOLUTION-001' || errorMessage.includes('Resolution too low')) {
         router.push('/bruh')
         return
       }
