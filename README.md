@@ -24,11 +24,22 @@ This project uses Supabase for the database. After setting up your Supabase proj
    - Copy and paste the contents of `supabase/migrations/001_create_users_table.sql`
    - Run the migration
 
+2. Enable Row Level Security (RLS) on `waiting_approval` and `images` tables:
+   - Go to your Supabase Dashboard → SQL Editor
+   - Copy and paste the contents of `supabase/migrations/002_enable_rls_policies.sql`
+   - Run the migration
+
+3. Optimize existing RLS policies for better performance:
+   - Go to your Supabase Dashboard → SQL Editor
+   - Copy and paste the contents of `supabase/migrations/003_optimize_rls_policies.sql`
+   - Run the migration
+
 This will:
 - Create a `users` table that links to `auth.users`
 - Add a `user_id` foreign key column to the `images` table
 - Set up Row Level Security policies
 - Create necessary indexes
+- Enable RLS on `waiting_approval` and `images` tables with appropriate policies
 
 ## Image Processing
 

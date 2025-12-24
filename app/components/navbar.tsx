@@ -1,19 +1,28 @@
 'use client'
 
 import Link from 'next/link'
-import { Upload, Grid3x3, Home, User, Check } from 'lucide-react'
+import { Upload, Grid3x3, Home, User, Check, MessageSquare } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import ImageUploadForm from './image-upload-form'
 import type { ImageUploadFormHandle } from './image-upload-form'
 
-function HomeButton() {
+function NavIconButton({ 
+  href, 
+  icon: Icon, 
+  ariaLabel 
+}: { 
+  href: string
+  icon: LucideIcon
+  ariaLabel: string
+}) {
   return (
     <Link
-      href="/home"
+      href={href}
       className="w-12 h-12 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity flex items-center justify-center"
-      aria-label="Home"
+      aria-label={ariaLabel}
     >
-      <Home size={24} />
+      <Icon size={24} />
     </Link>
   )
 }
@@ -91,30 +100,6 @@ function UploadButton({
   )
 }
 
-function FeedButton() {
-  return (
-    <Link
-      href="/feed"
-      className="w-12 h-12 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity flex items-center justify-center"
-      aria-label="Feed"
-    >
-      <Grid3x3 size={24} />
-    </Link>
-  )
-}
-
-function ProfileButton() {
-  return (
-    <Link
-      href="/profile"
-      className="w-12 h-12 bg-foreground text-background rounded-full hover:opacity-80 transition-opacity flex items-center justify-center"
-      aria-label="Profile"
-    >
-      <User size={24} />
-    </Link>
-  )
-}
-
 export default function Navbar() {
   const uploadFormRef = useRef<ImageUploadFormHandle>(null)
   const [uploadState, setUploadState] = useState({ uploading: false, progress: 0, success: false })
@@ -131,15 +116,16 @@ export default function Navbar() {
         onStateChange={setUploadState}
       />
       <nav className="flex flex-row z-50 bg-background items-center justify-center gap-4 py-4 md:py-8">
-        <HomeButton />
+        <NavIconButton href="/home" icon={Home} ariaLabel="Home" />
         <UploadButton 
           onClick={handleUploadClick}
           uploading={uploadState.uploading}
           progress={uploadState.progress}
           success={uploadState.success}
         />
-        <FeedButton />
-        <ProfileButton />
+        <NavIconButton href="/feed" icon={Grid3x3} ariaLabel="Feed" />
+        <NavIconButton href="/thoughts" icon={MessageSquare} ariaLabel="Thoughts" />
+        <NavIconButton href="/profile" icon={User} ariaLabel="Profile" />
       </nav>
     </>
   )
