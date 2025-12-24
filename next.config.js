@@ -9,6 +9,9 @@ const nextConfig = {
     // Increase middleware client body size limit for API routes
     middlewareClientMaxBodySize: '110mb',
   },
+  // Note: Vercel has a hard 4.5MB limit for serverless function payloads
+  // This cannot be overridden. Large files should be compressed client-side
+  // or uploaded directly to storage (bypassing the API route)
 }
 
 module.exports = nextConfig

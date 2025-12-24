@@ -3,6 +3,7 @@
 import { useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createError } from '@/app/utils/errors'
+import { compressImage, needsCompression } from '@/app/utils/image-compression'
 
 export interface ImageUploadFormHandle {
   triggerFileSelect: () => void
@@ -62,9 +63,25 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
     resetState()
 
     try {
+      // Compress image if it's too large (to avoid platform payload limits)
+      let fileToUpload = file
+      if (needsCompression(file)) {
+        try {
+          setMessage({ 
+            type: 'success', 
+            text: 'Compressing image...',
+          })
+          fileToUpload = await compressImage(file)
+        } catch (compressErr) {
+          console.error('Compression failed:', compressErr)
+          // Continue with original file if compression fails
+          // Server will handle it or return appropriate error
+        }
+      }
+      
       // Simple file upload - all processing done server-side with Sharp
       const formData = new FormData()
-      formData.append('image', file)
+      formData.append('image', fileToUpload)
 
       const xhr = new XMLHttpRequest()
 
@@ -130,8 +147,25 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
               error.code = appError.code
               reject(error)
             } catch (parseErr) {
-              // Response is not JSON - provide more helpful error message
-              const responsePreview = xhr.responseText?.substring(0, 200) || 'No response body'
+              // Response is not JSON - check for specific error patterns
+              const responsePreview = xhr.responseText?.substring(0, 500) || 'No response body'
+              
+              // Detect FUNCTION_PAYLOAD_TOO_LARGE error (413 from platform)
+              if (xhr.status === 413 && (
+                responsePreview.includes('FUNCTION_PAYLOAD_TOO_LARGE') ||
+                responsePreview.includes('Payload Too Large') ||
+                responsePreview.includes('Request Entity Too Large')
+              )) {
+                const appError = createError('UPLOAD-REQUEST-002', {
+                  details: `Platform function payload limit exceeded. ${responsePreview}`
+                })
+                const error = new Error(appError.message) as Error & { code?: string }
+                error.code = appError.code
+                reject(error)
+                return
+              }
+              
+              // Generic error for non-JSON responses
               const appError = createError('CLIENT-REQUEST-001', {
                 details: `HTTP ${xhr.status}${xhr.statusText ? `: ${xhr.statusText}` : ''}. ${responsePreview}`
               })

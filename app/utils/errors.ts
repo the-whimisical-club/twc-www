@@ -116,6 +116,22 @@ export const ERROR_REGISTRY: Record<string, ErrorDefinition> = {
     typicalCauses: ['Malformed FormData', 'Body size limit exceeded', 'Request timeout'],
     troubleshooting: ['Try a smaller file', 'Refresh the page', 'Check network connection'],
   },
+  'UPLOAD-REQUEST-002': {
+    code: 'UPLOAD-REQUEST-002',
+    name: 'Function Payload Too Large',
+    message: 'File is too large for upload. The platform has a size limit (typically 4.5MB for serverless functions).',
+    httpStatus: 413,
+    severity: 'medium',
+    category: 'request',
+    description: 'The request body exceeds the platform\'s function payload limit before reaching the API route handler.',
+    typicalCauses: ['File larger than platform limit (~4.5MB)', 'Uncompressed image', 'Platform function size restrictions'],
+    troubleshooting: [
+      'Compress the image before uploading',
+      'Use a smaller resolution image',
+      'Convert to JPEG format (smaller file size)',
+      'Try uploading a file under 4MB',
+    ],
+  },
   'UPLOAD-PROCESS-001': {
     code: 'UPLOAD-PROCESS-001',
     name: 'Image Processing Failed',
