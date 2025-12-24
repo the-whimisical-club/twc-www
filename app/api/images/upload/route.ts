@@ -14,6 +14,31 @@ if (!WORKER_URL) {
   throw new Error('Missing CLOUDFLARE_WORKER_URL environment variable')
 }
 
+// Helper function to add CORS headers to responses
+function jsonResponse(data: any, status: number = 200) {
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Content-Type': 'application/json',
+    },
+  })
+}
+
+// Handle OPTIONS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}
+
 export async function POST(request: Request) {
   try {
     const cookieStore = cookies()
@@ -25,21 +50,21 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (!user || !user.email) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: 'Unauthorized', 
         code: 'UPLOAD_001',
         message: 'User authentication required'
-      }, { status: 401 })
+      }, 401)
     }
 
     // Check if user is approved (exists in users table)
     const approved = await isUserApproved(user.id)
     if (!approved) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: 'User not approved', 
         code: 'UPLOAD_002',
         message: 'User account is pending approval'
-      }, { status: 403 })
+      }, 403)
     }
 
     // Parse FormData with error handling for body size limits
@@ -52,38 +77,38 @@ export async function POST(request: Request) {
       if (errorMessage.includes('body') && errorMessage.includes('exceeded') || 
           errorMessage.includes('Failed to parse body as FormData') ||
           errorMessage.includes('MB')) {
-        return NextResponse.json({ 
+        return jsonResponse({ 
           error: 'File too large for upload', 
           code: 'UPLOAD_008',
           message: 'File exceeds 100MB limit. Please use a smaller image.'
-        }, { status: 413 })
+        }, 413)
       }
       // Generic FormData parsing error
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: 'Failed to process upload request', 
         code: 'UPLOAD_009',
         message: `Request processing failed: ${errorMessage}`
-      }, { status: 400 })
+      }, 400)
     }
 
     const file = formData.get('image') as File
 
     if (!file) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: 'File is required', 
         code: 'UPLOAD_003',
         message: 'No file provided in request'
-      }, { status: 400 })
+      }, 400)
     }
 
     // Check file size before processing (100MB limit)
     const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: 'File too large', 
         code: 'UPLOAD_008',
         message: 'File size exceeds 100MB limit. Please use a smaller image.'
-      }, { status: 413 })
+      }, 413)
     }
 
     // Process image with Sharp (works in serverless environments like Vercel)
@@ -115,11 +140,11 @@ export async function POST(request: Request) {
       
       // Check if resolution is less than 1080p
       if (width < RES_1080P_WIDTH && height < RES_1080P_HEIGHT) {
-        return NextResponse.json({ 
+        return jsonResponse({ 
           error: 'Resolution too low', 
           code: 'UPLOAD_010',
           message: 'Image resolution must be at least 1080p'
-        }, { status: 400 })
+        }, 400)
       }
       
       // Check if needs resizing (only if > 4K/2160p)
@@ -188,18 +213,18 @@ export async function POST(request: Request) {
       
       // Check if it's a resolution error (shouldn't happen here, but just in case)
       if (errorMessage.includes('Resolution too low') || errorMessage.includes('RESOLUTION_TOO_LOW')) {
-        return NextResponse.json({ 
+        return jsonResponse({ 
           error: 'Resolution too low', 
           code: 'UPLOAD_010',
           message: 'Image resolution must be at least 1080p'
-        }, { status: 400 })
+        }, 400)
       }
       
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: 'Failed to process image', 
         code: 'UPLOAD_011',
         message: errorMessage
-      }, { status: 400 })
+      }, 400)
     }
 
     // All processed images are JPEG
@@ -283,11 +308,11 @@ export async function POST(request: Request) {
         contentType,
         fileSize: file.size
       })
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: errorMessage,
         code: errorCode,
         message: errorDetails || 'Cloudflare Worker upload failed'
-      }, { status: response.status >= 400 && response.status < 500 ? response.status : 400 })
+      }, response.status >= 400 && response.status < 500 ? response.status : 400)
     }
 
     // Worker returns JSON with url and filename
@@ -298,11 +323,11 @@ export async function POST(request: Request) {
     const userRecord = await ensureUser(user.id, user.email)
     
     if (!userRecord) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: 'Failed to create user record', 
         code: 'UPLOAD_005',
         message: 'Could not create or retrieve user record in database'
-      }, { status: 500 })
+      }, 500)
     }
 
     // Save URL to database with user_id
@@ -312,24 +337,24 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error('Database error:', dbError)
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: 'Failed to save image URL', 
         code: 'UPLOAD_006',
         message: 'Database insert failed',
         details: dbError.message
-      }, { status: 500 })
+      }, 500)
     }
 
-    return NextResponse.json({ success: true, url: publicUrl, filename })
+    return jsonResponse({ success: true, url: publicUrl, filename })
   } catch (err) {
     console.error('Upload error:', err)
-    return NextResponse.json(
+    return jsonResponse(
       { 
         error: err instanceof Error ? err.message : 'Failed to upload image',
         code: 'UPLOAD_007',
         message: 'Unexpected server error occurred'
       },
-      { status: 500 }
+      500
     )
   }
 }

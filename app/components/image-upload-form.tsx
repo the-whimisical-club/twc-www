@@ -97,23 +97,44 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
               reject(error)
             }
           } else {
+            // Log detailed error information for debugging
+            console.error('Upload failed:', {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              responseText: xhr.responseText?.substring(0, 500), // First 500 chars
+              responseType: xhr.responseType,
+              readyState: xhr.readyState
+            })
+            
             try {
               const errorData = JSON.parse(xhr.responseText) as { error?: string; code?: string; message?: string }
               const error = new Error(errorData.error || `Upload failed (${xhr.status})`) as Error & { code?: string; message?: string }
               error.code = errorData.code || 'CLIENT_006'
               error.message = errorData.message || error.message
               reject(error)
-            } catch {
-              const error = new Error(`Upload failed (HTTP ${xhr.status})`) as Error & { code?: string }
+            } catch (parseErr) {
+              // Response is not JSON - provide more helpful error message
+              const responsePreview = xhr.responseText?.substring(0, 200) || 'No response body'
+              const error = new Error(
+                `Upload failed (HTTP ${xhr.status}${xhr.statusText ? `: ${xhr.statusText}` : ''}). ${responsePreview}`
+              ) as Error & { code?: string }
               error.code = 'CLIENT_006'
               reject(error)
             }
           }
         })
 
-        xhr.addEventListener('error', () => {
+        xhr.addEventListener('error', (event) => {
           clearTimeout(timeout)
-          const error = new Error('Network error') as Error & { code?: string }
+          // Log network error details for debugging
+          console.error('Network error during upload:', {
+            readyState: xhr.readyState,
+            status: xhr.status,
+            statusText: xhr.statusText,
+            responseText: xhr.responseText?.substring(0, 200),
+            event: event
+          })
+          const error = new Error('Network error - check your connection and try again') as Error & { code?: string }
           error.code = 'CLIENT_007'
           reject(error)
         })
@@ -128,6 +149,17 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         xhr.open('POST', '/api/images/upload')
         // Don't set Content-Type - let browser set it with boundary for FormData
         // This is critical for Safari to work properly
+        
+        // Add timeout handling for mobile browsers
+        xhr.timeout = 60000 // 60 seconds (matches the setTimeout)
+        
+        xhr.addEventListener('timeout', () => {
+          clearTimeout(timeout)
+          const error = new Error('Upload timeout - file may be too large or connection too slow') as Error & { code?: string }
+          error.code = 'CLIENT_008'
+          reject(error)
+        })
+        
         xhr.send(formData)
       })
 
