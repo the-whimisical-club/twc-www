@@ -2,9 +2,14 @@ import { requireAuth } from '@/app/utils/auth'
 import { getThoughts } from '@/app/actions/thoughts'
 import Navbar from '@/app/components/navbar'
 import ThoughtsClient from './thoughts-client'
+import { ensureUser } from '@/app/utils/users'
 
 export default async function ThoughtsPage() {
   const { user } = await requireAuth()
+
+  // Get current user's ID from users table
+  const userRecord = await ensureUser(user.id, user.email || '')
+  const currentUserId = userRecord?.id || null
 
   // Fetch thoughts
   const result = await getThoughts()
@@ -26,7 +31,7 @@ export default async function ThoughtsPage() {
           thoughts
         </div>
         
-        <ThoughtsClient initialThoughts={thoughts} />
+        <ThoughtsClient initialThoughts={thoughts} currentUserId={currentUserId} />
       </div>
     </div>
   )
