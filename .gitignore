@@ -39,4 +39,4 @@ venv/
 __pycache__/
 *.pyc
 
-CODEBASE_SUMMARY.json
+.github
