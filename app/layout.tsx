@@ -48,5 +48,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-{/* Revert back to this stage if cloduflare is fucking up */}
