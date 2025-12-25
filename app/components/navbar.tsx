@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Upload, Grid3x3, Home, User, Check, MessageSquare } from 'lucide-react'
+import { Upload, Grid3x3, Home, User, Check, MessageSquare, Film } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import ImageUploadForm from './image-upload-form'
@@ -124,6 +124,7 @@ export default function Navbar() {
           success={uploadState.success}
         />
         <NavIconButton href="/feed" icon={Grid3x3} ariaLabel="Feed" />
+        <NavIconButton href="/medialib" icon={Film} ariaLabel="Media Library" />
         <NavIconButton href="/thoughts" icon={MessageSquare} ariaLabel="Thoughts" />
         <NavIconButton href="/profile" icon={User} ariaLabel="Profile" />
       </nav>
