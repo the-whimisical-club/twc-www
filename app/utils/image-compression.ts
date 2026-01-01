@@ -79,14 +79,28 @@ export async function compressImage(
       const img = new Image()
       
       img.onload = () => {
-        // Get natural image dimensions
+        // Get natural image dimensions (these are the raw pixel dimensions from the file)
         const imgWidth = img.naturalWidth || img.width
         const imgHeight = img.naturalHeight || img.height
         
+        console.log('Image loaded for compression:', {
+          rawWidth: imgWidth,
+          rawHeight: imgHeight,
+          exifOrientation: orientation,
+          aspectRatio: (imgWidth / imgHeight).toFixed(2)
+        })
+        
         // Determine if we need to swap dimensions for canvas (orientations 5, 6, 7, 8)
+        // These orientations mean the image data is stored rotated, so we need to swap
         const needsDimensionSwap = orientation >= 5 && orientation <= 8
         let canvasWidth = needsDimensionSwap ? imgHeight : imgWidth
         let canvasHeight = needsDimensionSwap ? imgWidth : imgHeight
+        
+        console.log('Canvas dimensions (after EXIF swap):', {
+          canvasWidth,
+          canvasHeight,
+          needsDimensionSwap
+        })
         
         // Calculate scale if exceeds max dimension
         let scale = 1
@@ -97,6 +111,12 @@ export async function compressImage(
         // Final canvas dimensions (after scaling)
         const finalWidth = Math.round(canvasWidth * scale)
         const finalHeight = Math.round(canvasHeight * scale)
+        
+        console.log('Final canvas dimensions:', {
+          finalWidth,
+          finalHeight,
+          scale
+        })
         
         // Create canvas
         const canvas = document.createElement('canvas')
@@ -142,8 +162,15 @@ export async function compressImage(
             break
           case 6:
             // 90° clockwise (most common for portrait photos from phones)
+            // Raw image: stored as landscape (e.g., 1920x1080)
+            // Display: should be portrait (1080x1920)
+            // Canvas: already sized as portrait (finalWidth=1080, finalHeight=1920)
+            // Transform: translate right by canvas height, rotate 90° clockwise
+            // After rotation, coordinate system is rotated, so we draw with swapped dimensions
             ctx.translate(finalHeight, 0)
             ctx.rotate(Math.PI / 2)
+            // Draw: source is imgWidth x imgHeight, destination after rotation is finalHeight x finalWidth
+            // This fills the canvas correctly after the rotation transformation
             ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, finalHeight, finalWidth)
             break
           case 7:

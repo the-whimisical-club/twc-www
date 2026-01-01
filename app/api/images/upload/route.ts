@@ -116,7 +116,8 @@ export async function POST(request: Request) {
       const fileExtension = file.name.toLowerCase().split('.').pop()
       const isJpegFile = fileExtension === 'jpg' || fileExtension === 'jpeg'
       
-      // Load image and get metadata (Sharp auto-handles EXIF orientation)
+      // Load image and get metadata
+      // Note: Sharp's metadata dimensions are BEFORE EXIF rotation is applied
       const image = sharp(imageBuffer)
       const metadata = await image.metadata()
       
@@ -126,9 +127,18 @@ export async function POST(request: Request) {
       
       // Log EXIF orientation for debugging
       const exifOrientation = metadata.orientation
+      
+      // Determine actual display dimensions after EXIF rotation
+      // Orientations 5, 6, 7, 8 swap width/height
+      const needsDimensionSwap = exifOrientation && exifOrientation >= 5 && exifOrientation <= 8
+      const displayWidth = needsDimensionSwap ? metadata.height! : metadata.width!
+      const displayHeight = needsDimensionSwap ? metadata.width! : metadata.height!
+      
       console.log('Image metadata:', {
-        width: metadata.width,
-        height: metadata.height,
+        rawWidth: metadata.width,
+        rawHeight: metadata.height,
+        displayWidth: displayWidth,
+        displayHeight: displayHeight,
         orientation: exifOrientation,
         format: metadata.format,
         hasProfile: !!metadata.icc,
@@ -136,8 +146,9 @@ export async function POST(request: Request) {
         userEmail: user.email
       })
       
-      let width = metadata.width
-      let height = metadata.height
+      // Use display dimensions for validation and processing
+      let width = displayWidth
+      let height = displayHeight
       
       // Check if resolution is less than 1080p
       if (width < RES_1080P_WIDTH && height < RES_1080P_HEIGHT) {
@@ -152,30 +163,34 @@ export async function POST(request: Request) {
       
       // If already JPEG/JPG and doesn't need resizing, pass through (but still handle EXIF)
       if ((isAlreadyJpeg || isJpegFile) && !needsResize) {
-        // Still process through Sharp to handle EXIF orientation
-        // Sharp auto-rotates based on EXIF, but we ensure it's applied
-        let pipeline = image.rotate() // Explicitly rotate based on EXIF orientation
+        // Process through Sharp to handle EXIF orientation
+        // .rotate() with no args auto-rotates based on EXIF and removes the orientation tag
+        // This ensures the output image is correctly oriented
+        let pipeline = image.rotate()
         
         processedImageBuffer = await pipeline
           .jpeg({ 
             quality: 95, 
-            mozjpeg: true 
+            mozjpeg: true
+            // .rotate() automatically removes EXIF orientation tag after rotation
           })
           .toBuffer()
         
         console.log('JPEG file passed through (EXIF handled):', {
           originalSize: imageBuffer.length,
           processedSize: processedImageBuffer.length,
-          dimensions: `${width}x${height}`,
+          originalDimensions: `${metadata.width}x${metadata.height}`,
+          displayDimensions: `${width}x${height}`,
+          exifOrientation: exifOrientation,
           format: 'JPEG'
         })
       } else {
         // Build processing pipeline for non-JPEG or files needing resizing
-        // Always rotate based on EXIF orientation first
-        let pipeline = image.rotate() // Explicitly rotate based on EXIF orientation
+        // Rotate based on EXIF orientation first (this applies the rotation)
+        let pipeline = image.rotate()
         
         if (needsResize) {
-          // Calculate scale to fit within 4K
+          // Calculate scale to fit within 4K using display dimensions
           const scale = Math.min(RES_4K_WIDTH / width, RES_4K_HEIGHT / height)
           const newWidth = Math.round(width * scale)
           const newHeight = Math.round(height * scale)
@@ -185,18 +200,24 @@ export async function POST(request: Request) {
         }
         
         // Convert to JPEG (always JPEG, quality 95, optimized)
+        // .rotate() automatically removes EXIF orientation tag after rotation
         processedImageBuffer = await pipeline
           .jpeg({ 
             quality: 95, 
-            mozjpeg: true 
+            mozjpeg: true
           })
           .toBuffer()
+        
+        const finalWidth = needsResize ? Math.round(width * Math.min(RES_4K_WIDTH / width, RES_4K_HEIGHT / height)) : width
+        const finalHeight = needsResize ? Math.round(height * Math.min(RES_4K_WIDTH / width, RES_4K_HEIGHT / height)) : height
         
         console.log('Image processed with Sharp:', {
           originalSize: imageBuffer.length,
           processedSize: processedImageBuffer.length,
-          originalDimensions: `${metadata.width}x${metadata.height}`,
-          processedDimensions: needsResize ? `${Math.round(width * Math.min(RES_4K_WIDTH / width, RES_4K_HEIGHT / height))}x${Math.round(height * Math.min(RES_4K_WIDTH / width, RES_4K_HEIGHT / height))}` : `${width}x${height}`,
+          rawDimensions: `${metadata.width}x${metadata.height}`,
+          displayDimensions: `${width}x${height}`,
+          finalDimensions: `${finalWidth}x${finalHeight}`,
+          exifOrientation: exifOrientation,
           wasResized: needsResize,
           wasConverted: !isAlreadyJpeg && !isJpegFile,
           format: 'JPEG'
