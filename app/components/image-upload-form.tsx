@@ -63,6 +63,27 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
     resetState()
 
     try {
+      // Always check EXIF orientation for diagnostic purposes (even for small files)
+      // This helps identify if EXIF reading is failing for specific users
+      let detectedOrientation = 1
+      try {
+        const EXIF = (await import('exif-js')).default
+        detectedOrientation = await new Promise<number>((resolve) => {
+          EXIF.getData(file as any, function(this: any) {
+            const orientation = EXIF.getTag(this, 'Orientation') || 1
+            resolve(orientation)
+          })
+        })
+        console.log('EXIF orientation detected (diagnostic):', {
+          orientation: detectedOrientation,
+          fileSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+          fileName: file.name
+        })
+      } catch (exifErr) {
+        console.warn('Could not read EXIF orientation (diagnostic):', exifErr)
+        // This is just for diagnostics - server will handle it
+      }
+
       // Compress image if it's too large (to avoid platform payload limits)
       let fileToUpload = file
       if (needsCompression(file)) {
@@ -71,12 +92,29 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
             type: 'success', 
             text: 'Compressing image...',
           })
+          console.log('Client-side compression needed:', {
+            originalSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+            fileName: file.name,
+            fileType: file.type,
+            exifOrientation: detectedOrientation
+          })
           fileToUpload = await compressImage(file)
+          console.log('Client-side compression completed:', {
+            compressedSize: (fileToUpload.size / (1024 * 1024)).toFixed(2) + 'MB',
+            reduction: ((1 - fileToUpload.size / file.size) * 100).toFixed(1) + '%'
+          })
         } catch (compressErr) {
           console.error('Compression failed:', compressErr)
           // Continue with original file if compression fails
           // Server will handle it or return appropriate error
         }
+      } else {
+        console.log('No client-side compression needed:', {
+          fileSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+          fileName: file.name,
+          exifOrientation: detectedOrientation,
+          note: 'Server-side Sharp will handle EXIF orientation'
+        })
       }
       
       // Simple file upload - all processing done server-side with Sharp

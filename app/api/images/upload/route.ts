@@ -124,6 +124,18 @@ export async function POST(request: Request) {
         throw new Error('Could not read image dimensions')
       }
       
+      // Log EXIF orientation for debugging
+      const exifOrientation = metadata.orientation
+      console.log('Image metadata:', {
+        width: metadata.width,
+        height: metadata.height,
+        orientation: exifOrientation,
+        format: metadata.format,
+        hasProfile: !!metadata.icc,
+        fileSize: imageBuffer.length,
+        userEmail: user.email
+      })
+      
       let width = metadata.width
       let height = metadata.height
       
@@ -140,8 +152,11 @@ export async function POST(request: Request) {
       
       // If already JPEG/JPG and doesn't need resizing, pass through (but still handle EXIF)
       if ((isAlreadyJpeg || isJpegFile) && !needsResize) {
-        // Still process through Sharp to handle EXIF orientation, but output as-is
-        processedImageBuffer = await image
+        // Still process through Sharp to handle EXIF orientation
+        // Sharp auto-rotates based on EXIF, but we ensure it's applied
+        let pipeline = image.rotate() // Explicitly rotate based on EXIF orientation
+        
+        processedImageBuffer = await pipeline
           .jpeg({ 
             quality: 95, 
             mozjpeg: true 
@@ -156,7 +171,8 @@ export async function POST(request: Request) {
         })
       } else {
         // Build processing pipeline for non-JPEG or files needing resizing
-        let pipeline = image
+        // Always rotate based on EXIF orientation first
+        let pipeline = image.rotate() // Explicitly rotate based on EXIF orientation
         
         if (needsResize) {
           // Calculate scale to fit within 4K
