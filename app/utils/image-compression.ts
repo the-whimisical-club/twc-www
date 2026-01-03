@@ -198,7 +198,11 @@ export async function compressImage(
         
         // Try different quality levels to get under size limit
         // We MUST get under 4MB to avoid platform 4.5MB limit
-        const tryCompress = (currentQuality: number, attemptCount: number = 0, currentWidth: number = finalWidth, currentHeight: number = finalHeight): void => {
+        // Note: currentWidth and currentHeight default to finalWidth/finalHeight but are set after this function is defined
+        const tryCompress = (currentQuality: number, attemptCount: number = 0, currentWidthParam?: number, currentHeightParam?: number): void => {
+          // Use provided dimensions or fall back to finalWidth/finalHeight
+          const currentWidth = currentWidthParam ?? finalWidth
+          const currentHeight = currentHeightParam ?? finalHeight
           // Prevent infinite loops
           if (attemptCount > 100) {
             reject(new Error(`Failed to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB after ${attemptCount} attempts`))
@@ -330,80 +334,6 @@ export async function compressImage(
               }
               
               // This should never be reached, but fail safely
-              if (blob.size > MAX_UPLOAD_SIZE) {
-                reject(new Error(
-                  `Unable to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB. ` +
-                  `Final size: ${sizeMB.toFixed(2)}MB. ` +
-                  `Please use a smaller or lower resolution image.`
-                ))
-                return
-              }
-                const newWidth = Math.round(finalWidth * 0.85) // More aggressive reduction
-                const newHeight = Math.round(finalHeight * 0.85)
-                console.log(`File still too large (${sizeMB.toFixed(2)}MB), reducing dimensions to ${newWidth}x${newHeight}`)
-                
-                // Update canvas dimensions
-                canvas.width = newWidth
-                canvas.height = newHeight
-                ctx.clearRect(0, 0, newWidth, newHeight)
-                ctx.save()
-                
-                // Re-apply orientation with new dimensions
-                switch (orientation) {
-                  case 2:
-                    ctx.translate(newWidth, 0)
-                    ctx.scale(-1, 1)
-                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newWidth, newHeight)
-                    break
-                  case 3:
-                    ctx.translate(newWidth, newHeight)
-                    ctx.rotate(Math.PI)
-                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newWidth, newHeight)
-                    break
-                  case 4:
-                    ctx.translate(0, newHeight)
-                    ctx.scale(1, -1)
-                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newWidth, newHeight)
-                    break
-                  case 5:
-                    ctx.translate(0, newWidth)
-                    ctx.rotate(-Math.PI / 2)
-                    ctx.scale(1, -1)
-                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newHeight, newWidth)
-                    break
-                  case 6:
-                    ctx.translate(newHeight, 0)
-                    ctx.rotate(Math.PI / 2)
-                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newHeight, newWidth)
-                    break
-                  case 7:
-                    ctx.translate(newHeight, newWidth)
-                    ctx.rotate(Math.PI / 2)
-                    ctx.scale(-1, 1)
-                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newHeight, newWidth)
-                    break
-                  case 8:
-                    ctx.translate(0, newHeight)
-                    ctx.rotate(-Math.PI / 2)
-                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newHeight, newWidth)
-                    break
-                  default:
-                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newWidth, newHeight)
-                    break
-                }
-                ctx.restore()
-                
-                // Update finalWidth/finalHeight for next iteration
-                finalWidth = newWidth
-                finalHeight = newHeight
-                
-                // Try again with same quality
-                tryCompress(currentQuality, attemptCount + 1)
-                return
-              }
-              
-              // If we get here and still too large, we've exhausted options
-              // This should not happen if logic is correct, but fail safely
               if (blob.size > MAX_UPLOAD_SIZE) {
                 reject(new Error(
                   `Unable to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB. ` +
