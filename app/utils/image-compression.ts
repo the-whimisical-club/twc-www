@@ -45,6 +45,69 @@ function getOrientation(file: File): Promise<number> {
 }
 
 /**
+ * Check if file is HEIC/HEIF format (not supported by browser Image API)
+ */
+function isHeicFile(file: File): boolean {
+  const fileName = file.name.toLowerCase()
+  const mimeType = file.type.toLowerCase()
+  return (
+    fileName.endsWith('.heic') ||
+    fileName.endsWith('.heif') ||
+    mimeType === 'image/heic' ||
+    mimeType === 'image/heif' ||
+    mimeType === 'image/heic-sequence' ||
+    mimeType === 'image/heif-sequence'
+  )
+}
+
+/**
+ * Convert HEIC to JPEG using heic2any library
+ */
+async function convertHeicToJpeg(file: File): Promise<File> {
+  try {
+    const heic2any = (await import('heic2any')).default
+    console.log('Converting HEIC to JPEG...', {
+      fileName: file.name,
+      fileSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB'
+    })
+    
+    // Convert HEIC to JPEG
+    const convertedBlobs = await heic2any({
+      blob: file,
+      toType: 'image/jpeg',
+      quality: 0.9
+    })
+    
+    // heic2any returns an array, get the first blob
+    const blob = Array.isArray(convertedBlobs) ? convertedBlobs[0] : convertedBlobs
+    if (!blob) {
+      throw new Error('HEIC conversion returned no result')
+    }
+    
+    // Create a new File from the converted blob
+    const convertedFile = new File(
+      [blob],
+      file.name.replace(/\.(heic|heif)$/i, '.jpg'),
+      {
+        type: 'image/jpeg',
+        lastModified: Date.now(),
+      }
+    )
+    
+    console.log('HEIC converted successfully:', {
+      originalSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+      convertedSize: (convertedFile.size / (1024 * 1024)).toFixed(2) + 'MB',
+      reduction: ((1 - convertedFile.size / file.size) * 100).toFixed(1) + '%'
+    })
+    
+    return convertedFile
+  } catch (err) {
+    console.error('HEIC conversion failed:', err)
+    throw new Error(`Failed to convert HEIC file: ${err instanceof Error ? err.message : 'Unknown error'}`)
+  }
+}
+
+/**
  * Compress an image file using Canvas API
  */
 export async function compressImage(
@@ -57,21 +120,44 @@ export async function compressImage(
     quality = 0.85, // Start with 85% quality
   } = options
 
-  // If file is already small enough, return as-is
-  if (file.size <= MAX_UPLOAD_SIZE) {
-    return file
+  // HEIC files need special handling - convert to JPEG first, then compress
+  let fileToProcess = file
+  if (isHeicFile(file)) {
+    console.log('HEIC file detected, converting to JPEG first...')
+    try {
+      fileToProcess = await convertHeicToJpeg(file)
+      console.log('HEIC converted to JPEG, now compressing...')
+    } catch (err) {
+      console.error('HEIC conversion failed:', err)
+      throw new Error(`Failed to convert HEIC file: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
   }
 
+  // If file is already small enough after conversion, return as-is
+  if (fileToProcess.size <= MAX_UPLOAD_SIZE) {
+    return fileToProcess
+  }
+
+  // Now compress the file (either original or converted HEIC)
+  // Continue with normal compression logic below
+
   return new Promise(async (resolve, reject) => {
-    // Get EXIF orientation first
+    // Get EXIF orientation first (use the file we're processing, which may be converted HEIC)
     let orientation = 1
     try {
-      orientation = await getOrientation(file)
+      orientation = await getOrientation(fileToProcess)
       console.log('EXIF orientation detected:', orientation)
     } catch (err) {
       console.warn('Could not read EXIF orientation, using default:', err)
       // Continue with default orientation (1 = normal)
     }
+    
+    // Log which file we're processing
+    console.log('Processing file for compression:', {
+      fileName: fileToProcess.name,
+      fileSize: (fileToProcess.size / (1024 * 1024)).toFixed(2) + 'MB',
+      isConverted: fileToProcess !== file
+    })
 
     const reader = new FileReader()
     
@@ -212,7 +298,15 @@ export async function compressImage(
           canvas.toBlob(
             (blob) => {
               if (!blob) {
-                reject(new Error('Failed to compress image'))
+                console.error('canvas.toBlob returned null', {
+                  attemptCount,
+                  currentQuality,
+                  currentWidth,
+                  currentHeight,
+                  canvasWidth: canvas.width,
+                  canvasHeight: canvas.height
+                })
+                reject(new Error('Failed to compress image: canvas.toBlob returned null'))
                 return
               }
               
@@ -222,7 +316,7 @@ export async function compressImage(
               if (blob.size <= MAX_UPLOAD_SIZE) {
                 const compressedFile = new File(
                   [blob],
-                  file.name.replace(/\.[^.]+$/, '.jpg'),
+                  fileToProcess.name.replace(/\.[^.]+$/, '.jpg'),
                   {
                     type: 'image/jpeg',
                     lastModified: Date.now(),
@@ -230,14 +324,15 @@ export async function compressImage(
                 )
                 
                 console.log('Image compressed successfully:', {
-                  originalSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+                  originalSize: (fileToProcess.size / (1024 * 1024)).toFixed(2) + 'MB',
                   compressedSize: (blob.size / (1024 * 1024)).toFixed(2) + 'MB',
-                  reduction: ((1 - blob.size / file.size) * 100).toFixed(1) + '%',
+                  reduction: ((1 - blob.size / fileToProcess.size) * 100).toFixed(1) + '%',
                   quality: currentQuality,
                   attempts: attemptCount + 1,
                   originalDimensions: `${imgWidth}x${imgHeight}`,
                   compressedDimensions: `${currentWidth}x${currentHeight}`,
                   orientation: orientation,
+                  wasHeic: fileToProcess !== file
                 })
                 
                 resolve(compressedFile)
@@ -260,16 +355,24 @@ export async function compressImage(
                 // Calculate how much we need to reduce
                 const targetSize = MAX_UPLOAD_SIZE * 0.95 // Target 95% of limit for safety
                 const sizeRatio = Math.sqrt(targetSize / blob.size) // Square root because area scales as width*height
-                const reductionFactor = Math.max(0.5, sizeRatio * 0.9) // At least 50% reduction, but usually less aggressive
+                // Be more aggressive - reduce by at least 20% each time, or use calculated ratio if more aggressive
+                const reductionFactor = Math.min(0.8, Math.max(0.5, sizeRatio * 0.9))
                 
                 const newWidth = Math.max(1080, Math.round(currentWidth * reductionFactor))
                 const newHeight = Math.max(1080, Math.round(currentHeight * reductionFactor))
                 
-                // If we've hit minimum dimensions and still too large, we have a problem
-                if (newWidth === currentWidth && newHeight === currentHeight && blob.size > MAX_UPLOAD_SIZE) {
+                // Ensure we're actually making progress (dimensions must change)
+                if (newWidth === currentWidth && newHeight === currentHeight) {
+                  // If we can't reduce dimensions further, try even lower quality
+                  if (currentQuality > 0.2) {
+                    console.log(`Cannot reduce dimensions further, trying lower quality: ${(currentQuality - 0.1).toFixed(2)}`)
+                    tryCompress(Math.max(0.2, currentQuality - 0.1), attemptCount + 1, currentWidth, currentHeight)
+                    return
+                  }
+                  // If we've hit minimum dimensions AND minimum quality, we have a problem
                   reject(new Error(
                     `Unable to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB. ` +
-                    `Final size: ${sizeMB.toFixed(2)}MB at minimum dimensions (${newWidth}x${newHeight}). ` +
+                    `Final size: ${sizeMB.toFixed(2)}MB at minimum dimensions (${newWidth}x${newHeight}) and quality (${currentQuality}). ` +
                     `Please use a smaller or lower resolution image.`
                   ))
                   return
@@ -352,18 +455,20 @@ export async function compressImage(
         tryCompress(quality)
       }
       
-      img.onerror = () => {
-        reject(new Error('Failed to load image'))
+      img.onerror = (err) => {
+        console.error('Image load error:', err)
+        reject(new Error('Failed to load image for compression'))
       }
       
       img.src = e.target?.result as string
     }
     
-    reader.onerror = () => {
-      reject(new Error('Failed to read file'))
+    reader.onerror = (err) => {
+      console.error('FileReader error:', err)
+      reject(new Error('Failed to read file for compression'))
     }
     
-    reader.readAsDataURL(file)
+    reader.readAsDataURL(fileToProcess)
   })
 }
 

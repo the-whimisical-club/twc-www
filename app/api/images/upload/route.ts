@@ -118,6 +118,8 @@ export async function POST(request: Request) {
       
       // Load image and get metadata
       // Note: Sharp's metadata dimensions are BEFORE EXIF rotation is applied
+      // Sharp supports HEIC/HEIF if libvips was compiled with HEIC support
+      // If HEIC conversion fails client-side, this will attempt to process it server-side
       const image = sharp(imageBuffer)
       const metadata = await image.metadata()
       

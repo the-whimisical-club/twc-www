@@ -21,7 +21,6 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [success, setSuccess] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string; code?: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -36,21 +35,6 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
     props.onStateChange?.(state)
   }
 
-  // Auto-dismiss toast after 3 seconds and reset upload state
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => {
-        setMessage(null)
-        // Reset upload state to normal after toast disappears
-        setUploading(false)
-        setProgress(0)
-        setSuccess(false)
-        notifyStateChange({ uploading: false, progress: 0, success: false })
-      }, 3000)
-
-      return () => clearTimeout(timer)
-    }
-  }, [message])
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -60,7 +44,6 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       setUploading(true)
       setProgress(0)
       setSuccess(false)
-      setMessage(null)
       notifyStateChange({ uploading: true, progress: 0, success: false })
     }
     resetState()
@@ -87,18 +70,22 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         // This is just for diagnostics - server will handle it
       }
 
+      // Check if file is HEIC/HEIF (needs conversion)
+      const isHeic = file.name.toLowerCase().endsWith('.heic') || 
+                     file.name.toLowerCase().endsWith('.heif') ||
+                     file.type.toLowerCase().includes('heic') ||
+                     file.type.toLowerCase().includes('heif')
+      
       // Compress image if it's too large (to avoid platform payload limits)
+      // HEIC files will be converted to JPEG first, then compressed if needed
       let fileToUpload = file
-      if (needsCompression(file)) {
+      if (needsCompression(file) || isHeic) {
         try {
-          setMessage({ 
-            type: 'success', 
-            text: 'Compressing image...',
-          })
-          console.log('Client-side compression needed:', {
+          console.log('Client-side processing needed:', {
             originalSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
             fileName: file.name,
             fileType: file.type,
+            isHeic: isHeic,
             exifOrientation: detectedOrientation
           })
           fileToUpload = await compressImage(file)
@@ -119,20 +106,39 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
             underLimit: fileToUpload.size <= MAX_UPLOAD_SIZE
           })
         } catch (compressErr) {
-          console.error('Compression failed:', compressErr)
-          // If compression fails and file is still too large, show error
+          console.error('Compression/conversion failed:', compressErr)
+          
+          // For HEIC files, if conversion fails, try to upload original (server Sharp can handle it)
+          if (isHeic) {
+            console.warn('HEIC conversion failed, attempting to upload original (server will handle)')
+            // Server-side Sharp can handle HEIC, so continue with original
+            fileToUpload = file
+            // But if it's still too large, we have a problem
+            if (file.size > MAX_UPLOAD_SIZE) {
+              const errorCode = 'UPLOAD-REQUEST-002'
+              const errorMessage = `HEIC file is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB) and conversion failed. Please convert to JPEG first or use a smaller image.`
+              console.error(errorMessage)
+              const error = new Error(errorMessage) as Error & { code?: string }
+              error.code = errorCode
+              throw error
+            }
+            // If HEIC is under limit, continue with original (server will handle conversion)
+            // Don't return - let it continue to upload
+          } else {
+          
+          // For non-HEIC files, if compression fails and file is still too large, show error
           if (file.size > MAX_UPLOAD_SIZE) {
             const errorCode = 'UPLOAD-REQUEST-002'
             const errorMessage = `Image is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB) and compression failed. Please use a smaller image.`
-            setMessage({ 
-              type: 'error', 
-              text: errorMessage,
-              code: errorCode
-            })
-            throw new Error(errorMessage)
+            console.error(errorMessage)
+            // Create error with code property
+            const error = new Error(errorMessage) as Error & { code?: string }
+            error.code = errorCode
+            throw error
           }
-          // If file is under limit even without compression, continue
-          console.warn('Compression failed but file is under limit, continuing with original')
+            // If file is under limit even without compression, continue
+            console.warn('Compression failed but file is under limit, continuing with original')
+          }
         }
       } else {
         console.log('No client-side compression needed:', {
@@ -321,15 +327,12 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
       
       // Handle resolution error - redirect to /bruh
       if (errorCode === 'IMAGE-RESOLUTION-001' || errorMessage.includes('Resolution too low')) {
+        console.error('Resolution too low, redirecting to /bruh')
         router.push('/bruh')
         return
       }
       
-      setMessage({ 
-        type: 'error', 
-        text: `${errorMessage} [${errorCode}]`,
-        code: errorCode
-      })
+      console.error('Upload error:', errorMessage, `[${errorCode}]`)
     }
   }
 
@@ -345,25 +348,6 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
         disabled={uploading}
         className="hidden"
       />
-      {message && (
-        <div
-          className={`fixed top-4 left-1/2 transform -translate-x-1/2 p-3 rounded z-50 max-w-md ${
-            message.type === 'success'
-              ? 'bg-green-500 text-white'
-              : 'bg-red-500 text-white'
-          }`}
-        >
-          <div className="font-medium">{message.text}</div>
-          {message.code && message.type === 'error' && (
-            <a 
-              href="/errors" 
-              className="text-xs mt-1 opacity-90 hover:opacity-100 underline cursor-pointer block"
-            >
-              Error Code: {message.code} | Click to see what this means
-            </a>
-          )}
-        </div>
-      )}
     </>
   )
 })
