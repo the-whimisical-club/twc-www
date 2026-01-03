@@ -109,8 +109,9 @@ export async function compressImage(
         }
         
         // Final canvas dimensions (after scaling)
-        const finalWidth = Math.round(canvasWidth * scale)
-        const finalHeight = Math.round(canvasHeight * scale)
+        // Use let so we can update during compression iterations
+        let finalWidth = Math.round(canvasWidth * scale)
+        let finalHeight = Math.round(canvasHeight * scale)
         
         console.log('Final canvas dimensions:', {
           finalWidth,
@@ -196,7 +197,14 @@ export async function compressImage(
         ctx.restore()
         
         // Try different quality levels to get under size limit
-        const tryCompress = (currentQuality: number): void => {
+        // We MUST get under 4MB to avoid platform 4.5MB limit
+        const tryCompress = (currentQuality: number, attemptCount: number = 0): void => {
+          // Prevent infinite loops
+          if (attemptCount > 50) {
+            reject(new Error(`Failed to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB after ${attemptCount} attempts`))
+            return
+          }
+          
           canvas.toBlob(
             (blob) => {
               if (!blob) {
@@ -206,21 +214,53 @@ export async function compressImage(
               
               const sizeMB = blob.size / (1024 * 1024)
               
-              // If still too large and quality can be reduced further
-              if (blob.size > MAX_UPLOAD_SIZE && currentQuality > 0.5) {
-                // Reduce quality by 0.1 and try again
-                tryCompress(Math.max(0.5, currentQuality - 0.1))
+              // If we're under the limit, we're done!
+              if (blob.size <= MAX_UPLOAD_SIZE) {
+                const compressedFile = new File(
+                  [blob],
+                  file.name.replace(/\.[^.]+$/, '.jpg'),
+                  {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  }
+                )
+                
+                console.log('Image compressed successfully:', {
+                  originalSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+                  compressedSize: (blob.size / (1024 * 1024)).toFixed(2) + 'MB',
+                  reduction: ((1 - blob.size / file.size) * 100).toFixed(1) + '%',
+                  quality: currentQuality,
+                  attempts: attemptCount + 1,
+                  originalDimensions: `${imgWidth}x${imgHeight}`,
+                  compressedDimensions: `${finalWidth}x${finalHeight}`,
+                  orientation: orientation,
+                })
+                
+                resolve(compressedFile)
                 return
               }
               
-              // If still too large, reduce dimensions and re-render
-              if (blob.size > MAX_UPLOAD_SIZE && finalWidth > 1920 && finalHeight > 1080) {
-                const newWidth = Math.round(finalWidth * 0.9)
-                const newHeight = Math.round(finalHeight * 0.9)
+              // If still too large, try reducing quality first
+              if (blob.size > MAX_UPLOAD_SIZE && currentQuality > 0.3) {
+                // Reduce quality more aggressively
+                const newQuality = Math.max(0.3, currentQuality - 0.15)
+                console.log(`File still too large (${sizeMB.toFixed(2)}MB), reducing quality to ${newQuality.toFixed(2)}`)
+                tryCompress(newQuality, attemptCount + 1)
+                return
+              }
+              
+              // If still too large after quality reduction, reduce dimensions
+              if (blob.size > MAX_UPLOAD_SIZE && finalWidth > 1080 && finalHeight > 1080) {
+                const newWidth = Math.round(finalWidth * 0.85) // More aggressive reduction
+                const newHeight = Math.round(finalHeight * 0.85)
+                console.log(`File still too large (${sizeMB.toFixed(2)}MB), reducing dimensions to ${newWidth}x${newHeight}`)
+                
+                // Update canvas dimensions
                 canvas.width = newWidth
                 canvas.height = newHeight
                 ctx.clearRect(0, 0, newWidth, newHeight)
                 ctx.save()
+                
                 // Re-apply orientation with new dimensions
                 switch (orientation) {
                   case 2:
@@ -265,30 +305,26 @@ export async function compressImage(
                     break
                 }
                 ctx.restore()
-                tryCompress(currentQuality)
+                
+                // Update finalWidth/finalHeight for next iteration
+                finalWidth = newWidth
+                finalHeight = newHeight
+                
+                // Try again with same quality
+                tryCompress(currentQuality, attemptCount + 1)
                 return
               }
               
-              // Create new file with compressed blob
-              const compressedFile = new File(
-                [blob],
-                file.name.replace(/\.[^.]+$/, '.jpg'), // Ensure .jpg extension
-                {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                }
-              )
-              
-              console.log('Image compressed:', {
-                originalSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
-                compressedSize: (blob.size / (1024 * 1024)).toFixed(2) + 'MB',
-                originalDimensions: `${imgWidth}x${imgHeight}`,
-                compressedDimensions: `${finalWidth}x${finalHeight}`,
-                orientation: orientation,
-                quality: currentQuality,
-              })
-              
-              resolve(compressedFile)
+              // If we get here and still too large, we've exhausted options
+              // This should not happen if logic is correct, but fail safely
+              if (blob.size > MAX_UPLOAD_SIZE) {
+                reject(new Error(
+                  `Unable to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB. ` +
+                  `Final size: ${sizeMB.toFixed(2)}MB. ` +
+                  `Please use a smaller or lower resolution image.`
+                ))
+                return
+              }
             },
             'image/jpeg',
             currentQuality

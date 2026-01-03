@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createError } from '@/app/utils/errors'
 import { compressImage, needsCompression } from '@/app/utils/image-compression'
 
+// Import the size limit constant
+const MAX_UPLOAD_SIZE = 4 * 1024 * 1024 // 4MB - matches image-compression.ts
+
 export interface ImageUploadFormHandle {
   triggerFileSelect: () => void
   getUploadState: () => { uploading: boolean; progress: number; success: boolean }
@@ -99,14 +102,37 @@ const ImageUploadForm = forwardRef<ImageUploadFormHandle, ImageUploadFormProps>(
             exifOrientation: detectedOrientation
           })
           fileToUpload = await compressImage(file)
+          
+          // Verify compression actually reduced the size
+          if (fileToUpload.size > MAX_UPLOAD_SIZE) {
+            console.warn('Compression did not reduce file below limit:', {
+              originalSize: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+              compressedSize: (fileToUpload.size / (1024 * 1024)).toFixed(2) + 'MB',
+              limit: (MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2) + 'MB'
+            })
+            // Still try to upload - server will handle it, but log the issue
+          }
+          
           console.log('Client-side compression completed:', {
             compressedSize: (fileToUpload.size / (1024 * 1024)).toFixed(2) + 'MB',
-            reduction: ((1 - fileToUpload.size / file.size) * 100).toFixed(1) + '%'
+            reduction: ((1 - fileToUpload.size / file.size) * 100).toFixed(1) + '%',
+            underLimit: fileToUpload.size <= MAX_UPLOAD_SIZE
           })
         } catch (compressErr) {
           console.error('Compression failed:', compressErr)
-          // Continue with original file if compression fails
-          // Server will handle it or return appropriate error
+          // If compression fails and file is still too large, show error
+          if (file.size > MAX_UPLOAD_SIZE) {
+            const errorCode = 'UPLOAD-REQUEST-002'
+            const errorMessage = `Image is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB) and compression failed. Please use a smaller image.`
+            setMessage({ 
+              type: 'error', 
+              text: errorMessage,
+              code: errorCode
+            })
+            throw new Error(errorMessage)
+          }
+          // If file is under limit even without compression, continue
+          console.warn('Compression failed but file is under limit, continuing with original')
         }
       } else {
         console.log('No client-side compression needed:', {
