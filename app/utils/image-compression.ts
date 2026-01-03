@@ -198,9 +198,9 @@ export async function compressImage(
         
         // Try different quality levels to get under size limit
         // We MUST get under 4MB to avoid platform 4.5MB limit
-        const tryCompress = (currentQuality: number, attemptCount: number = 0): void => {
+        const tryCompress = (currentQuality: number, attemptCount: number = 0, currentWidth: number = finalWidth, currentHeight: number = finalHeight): void => {
           // Prevent infinite loops
-          if (attemptCount > 50) {
+          if (attemptCount > 100) {
             reject(new Error(`Failed to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB after ${attemptCount} attempts`))
             return
           }
@@ -232,7 +232,7 @@ export async function compressImage(
                   quality: currentQuality,
                   attempts: attemptCount + 1,
                   originalDimensions: `${imgWidth}x${imgHeight}`,
-                  compressedDimensions: `${finalWidth}x${finalHeight}`,
+                  compressedDimensions: `${currentWidth}x${currentHeight}`,
                   orientation: orientation,
                 })
                 
@@ -240,17 +240,104 @@ export async function compressImage(
                 return
               }
               
-              // If still too large, try reducing quality first
+              // Strategy: Try quality reduction first, then force resize if needed
+              // If quality is still reducible, try that first
               if (blob.size > MAX_UPLOAD_SIZE && currentQuality > 0.3) {
                 // Reduce quality more aggressively
                 const newQuality = Math.max(0.3, currentQuality - 0.15)
                 console.log(`File still too large (${sizeMB.toFixed(2)}MB), reducing quality to ${newQuality.toFixed(2)}`)
-                tryCompress(newQuality, attemptCount + 1)
+                tryCompress(newQuality, attemptCount + 1, currentWidth, currentHeight)
                 return
               }
               
-              // If still too large after quality reduction, reduce dimensions
-              if (blob.size > MAX_UPLOAD_SIZE && finalWidth > 1080 && finalHeight > 1080) {
+              // If quality is at minimum (0.3) and still too large, FORCE resize
+              // Keep resizing until we're under the limit
+              if (blob.size > MAX_UPLOAD_SIZE) {
+                // Calculate how much we need to reduce
+                const targetSize = MAX_UPLOAD_SIZE * 0.95 // Target 95% of limit for safety
+                const sizeRatio = Math.sqrt(targetSize / blob.size) // Square root because area scales as width*height
+                const reductionFactor = Math.max(0.5, sizeRatio * 0.9) // At least 50% reduction, but usually less aggressive
+                
+                const newWidth = Math.max(1080, Math.round(currentWidth * reductionFactor))
+                const newHeight = Math.max(1080, Math.round(currentHeight * reductionFactor))
+                
+                // If we've hit minimum dimensions and still too large, we have a problem
+                if (newWidth === currentWidth && newHeight === currentHeight && blob.size > MAX_UPLOAD_SIZE) {
+                  reject(new Error(
+                    `Unable to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB. ` +
+                    `Final size: ${sizeMB.toFixed(2)}MB at minimum dimensions (${newWidth}x${newHeight}). ` +
+                    `Please use a smaller or lower resolution image.`
+                  ))
+                  return
+                }
+                
+                console.log(`File still too large (${sizeMB.toFixed(2)}MB), forcing resize from ${currentWidth}x${currentHeight} to ${newWidth}x${newHeight}`)
+                
+                // Update canvas dimensions
+                canvas.width = newWidth
+                canvas.height = newHeight
+                ctx.clearRect(0, 0, newWidth, newHeight)
+                ctx.save()
+                
+                // Re-apply orientation with new dimensions
+                switch (orientation) {
+                  case 2:
+                    ctx.translate(newWidth, 0)
+                    ctx.scale(-1, 1)
+                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newWidth, newHeight)
+                    break
+                  case 3:
+                    ctx.translate(newWidth, newHeight)
+                    ctx.rotate(Math.PI)
+                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newWidth, newHeight)
+                    break
+                  case 4:
+                    ctx.translate(0, newHeight)
+                    ctx.scale(1, -1)
+                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newWidth, newHeight)
+                    break
+                  case 5:
+                    ctx.translate(0, newWidth)
+                    ctx.rotate(-Math.PI / 2)
+                    ctx.scale(1, -1)
+                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newHeight, newWidth)
+                    break
+                  case 6:
+                    ctx.translate(newHeight, 0)
+                    ctx.rotate(Math.PI / 2)
+                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newHeight, newWidth)
+                    break
+                  case 7:
+                    ctx.translate(newHeight, newWidth)
+                    ctx.rotate(Math.PI / 2)
+                    ctx.scale(-1, 1)
+                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newHeight, newWidth)
+                    break
+                  case 8:
+                    ctx.translate(0, newHeight)
+                    ctx.rotate(-Math.PI / 2)
+                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newHeight, newWidth)
+                    break
+                  default:
+                    ctx.drawImage(img, 0, 0, imgWidth, imgHeight, 0, 0, newWidth, newHeight)
+                    break
+                }
+                ctx.restore()
+                
+                // Try again with resized dimensions and same quality
+                tryCompress(currentQuality, attemptCount + 1, newWidth, newHeight)
+                return
+              }
+              
+              // This should never be reached, but fail safely
+              if (blob.size > MAX_UPLOAD_SIZE) {
+                reject(new Error(
+                  `Unable to compress image below ${(MAX_UPLOAD_SIZE / (1024 * 1024)).toFixed(2)}MB. ` +
+                  `Final size: ${sizeMB.toFixed(2)}MB. ` +
+                  `Please use a smaller or lower resolution image.`
+                ))
+                return
+              }
                 const newWidth = Math.round(finalWidth * 0.85) // More aggressive reduction
                 const newHeight = Math.round(finalHeight * 0.85)
                 console.log(`File still too large (${sizeMB.toFixed(2)}MB), reducing dimensions to ${newWidth}x${newHeight}`)
